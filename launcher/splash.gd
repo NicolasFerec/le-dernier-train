@@ -121,6 +121,8 @@ func _unpack(staging: String) -> bool:
 
 func _installed_versions() -> Array[String]:
 	var versions: Array[String] = []
+	if not DirAccess.dir_exists_absolute(INSTALL_ROOT):
+		return versions
 	for folder in DirAccess.get_directories_at(INSTALL_ROOT):
 		if version_pattern.search(folder) != null and FileAccess.file_exists(INSTALL_ROOT.path_join(folder).path_join(executable)):
 			versions.append(folder)

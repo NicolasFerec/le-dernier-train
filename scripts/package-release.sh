@@ -16,6 +16,9 @@ cp launcher/project.godot launcher/splash.tscn launcher/splash.gd "$stage/launch
 cp export_presets.cfg "$stage/launcher/"
 cp locale/game.csv "$stage/launcher/locale/"
 
+# Load GodotSteam at editor startup instead of hot-loading it on the first scan.
+mkdir -p .godot
+printf "res://addons/godotsteam/godotsteam.gdextension\n" > .godot/extension_list.cfg
 godot --headless --editor --path . --import
 cp locale/game.fr.translation locale/game.en.translation "$stage/launcher/locale/"
 godot --headless --path "$stage/launcher" --script res://splash.gd --check-only
