@@ -1,0 +1,7 @@
+.godot/
+.import/
+export_credentials.cfg
+*.tmp
+
+/addons/godotsteam/
+/steam_appid.txt

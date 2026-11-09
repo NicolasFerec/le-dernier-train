@@ -1,0 +1,42 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable
+          curl -fsSL --retry 3 "$url/Godot_v4.7.2-stable_linux.x86_64.zip" -o godot.zip
+          curl -fsSL --retry 3 "$url/Godot_v4.7.2-stable_export_templates.tpz" -o templates.tpz
+          curl -fsSL --retry 3 "$url/SHA512-SUMS.txt" -o SHA512-SUMS.txt
+          sed -n 's/  *Godot_v4.7.2-stable_linux.x86_64.zip$/  godot.zip/p; s/  *Godot_v4.7.2-stable_export_templates.tpz$/  templates.tpz/p' SHA512-SUMS.txt | sha512sum -c -
+          mkdir -p "$RUNNER_TEMP/bin" "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          unzip -q godot.zip -d "$RUNNER_TEMP"
+          install "$RUNNER_TEMP/Godot_v4.7.2-stable_linux.x86_64" "$RUNNER_TEMP/bin/godot"
+          unzip -jq templates.tpz 'templates/linux_release.x86_64' 'templates/windows_release_x86_64.exe' -d "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          mv godot.zip templates.tpz SHA512-SUMS.txt "$RUNNER_TEMP/"
+      - name: Install GodotSteam
+        run: |
+          curl -fsSL --retry 3 https://codeberg.org/godotsteam/godotsteam/releases/download/v4.24-gde/godotsteam-4.24-gdextension-plugin-4.4.zip -o "$RUNNER_TEMP/steam.zip"
+          echo "d5785bee7000c3accbf896e4b2cf11eac3ed0da1f03cc4bed903b794751a58cf  $RUNNER_TEMP/steam.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/steam.zip" 'addons/godotsteam/godotsteam.gdextension' 'addons/godotsteam/license.md' 'addons/godotsteam/linux64/*' 'addons/godotsteam/win64/*'
+      - name: Package Windows and Linux
+        run: scripts/package-release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/release/"* --verify-tag --generate-notes --draft
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

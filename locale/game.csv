@@ -1,0 +1,82 @@
+keys,fr,en
+HOST,Héberger,Host
+ADDRESS,Adresse ou code Steam,Address or Steam lobby code
+JOIN,Rejoindre,Join
+STEAM_HOST,Héberger Steam,Host on Steam
+STEAM_JOIN,Rejoindre Steam,Join on Steam
+STEAM_INVITE,Inviter / copier le code,Invite / copy code
+LEAVE,Quitter la session,Leave session
+COMBAT_HELP,ZQSD / flèches   ·   J Attaque   ·   Espace Esquive,WASD / arrows   ·   J Attack   ·   Space Dodge
+LOBBY,Salon,Lobby
+START,Lancer la partie,Start run
+WAIT_HOST,En attente du lancement par l’hôte.,Waiting for the host to start.
+FIGHTER,Combattant,Fighter
+SCOUT,Éclaireur,Scout
+SWORD,Épée,Sword
+HAMMER,Marteau,Hammer
+RAPIER,Rapière,Rapier
+DAGGERS,Dagues,Daggers
+UNLOCK_HAMMER,Marteau · Combattant,Hammer · Fighter
+UNLOCK_DAGGERS,Dagues · Éclaireur,Daggers · Scout
+HEALTH_UPGRADE,Vitalité (+1 PV),Vitality (+1 HP)
+SPEED_UPGRADE,Mobilité (+15 %),Mobility (+15%)
+HP,%d / %d PV,%d / %d HP
+DODGE,Esquive,Dodge
+PURCHASE_SAVED,Achat enregistré.,Purchase saved.
+PURCHASE_FAILED,Achat impossible (%s).,Purchase failed (%s).
+LOADOUT_SAVE_FAILED,Impossible d’enregistrer l’équipement.,Could not save your loadout.
+POINTS,Points disponibles : %d,Available points: %d
+REQUIRES,%s · nécessite %s,%s · requires %s
+OWNED,acquis,owned
+PRICE,%d pts,%d pts
+CHARACTER_STATION,Personnage,Character
+ARSENAL_STATION,Arsenal,Armory
+PASSIVES_STATION,Passifs,Passives
+DEPARTURE_STATION,Départ,Departure
+CONNECTION_FAILED,Connexion impossible. Vérifie que le salon est ouvert.,Could not connect. Check that the lobby is open.
+HOST_LEFT,L’hôte a quitté la partie.,The host left the game.
+VERSION_UNKNOWN,Version du salon non confirmée. Vérifie que vous utilisez la même version du jeu.,Could not verify the lobby version. Make sure you both use the same game version.
+VERSION_MISMATCH,Versions différentes · Toi : %s · Hôte : %s. Installe la même version pour rejoindre.,Version mismatch · You: %s · Host: %s. Install the same version to join.
+STEAM_REQUIRED,Lance le jeu avec Steam et un App ID de test.,Start the game with Steam and a test App ID.
+STEAM_EXTENSION_MISSING,Extension GodotSteam manquante.,The GodotSteam extension is missing.
+STEAM_UNAVAILABLE,Steam indisponible. Ouvre le client Steam et connecte-toi.,Steam is unavailable. Open Steam and sign in.
+STEAM_CREATING,Création du salon Steam…,Creating Steam lobby…
+STEAM_LEAVE_FIRST,Quitte la session en cours avant de rejoindre un salon Steam.,Leave your current session before joining a Steam lobby.
+STEAM_INVALID_CODE,Saisis un code de salon Steam valide.,Enter a valid Steam lobby code.
+STEAM_JOINING,Connexion au salon Steam…,Joining Steam lobby…
+STEAM_CODE_COPIED,Code du salon Steam copié.,Steam lobby code copied.
+STEAM_CREATE_FAILED,Impossible de créer le salon Steam (%d).,Could not create the Steam lobby (%d).
+STEAM_HOST_FAILED,Impossible d’héberger via Steam (%s).,Could not host on Steam (%s).
+STEAM_SETUP_FAILED,Impossible de configurer le salon Steam.,Could not configure the Steam lobby.
+STEAM_JOIN_FAILED,Impossible de rejoindre le salon Steam (%d).,Could not join the Steam lobby (%d).
+STEAM_HOST_LEFT,L’hôte a quitté ce salon Steam.,The host left this Steam lobby.
+STEAM_CONNECT_FAILED,Connexion Steam impossible (%s).,Steam connection failed (%s).
+HOST_FAILED,Hébergement impossible (%s).,Could not host (%s).
+UDP_LOBBY,Salon coop · UDP %d,Co-op lobby · UDP %d
+ENTER_ADDRESS,Saisissez une adresse.,Enter an address.
+CONNECT_ERROR,Connexion impossible (%s).,Connection failed (%s).
+STEAM_LOBBY,Salon Steam,Steam lobby
+CONNECTING,Connexion…,Connecting…
+LOADOUT_SYNC,Synchronisation des équipements…,Syncing loadouts…
+PARTY_DOWN_NOTICE,Groupe à terre.,The party was defeated.
+PARTY_DOWN,Groupe à terre,Party defeated
+RUN_REWARD,Partie terminée · +%d points,Run complete · +%d points
+REWARD_SAVE_FAILED,Impossible d’enregistrer la récompense.,Could not save the reward.
+LOBBY_HELP,ZQSD / flèches   ·   Approche-toi d’un poste,WASD / arrows   ·   Walk up to a station
+CLOSE_PROMPT,[E] Fermer,[E] Close
+PLAYER_COUNT,%d/%d joueurs,%d/%d players
+SOLO,Solo,Solo
+ENEMY_COUNT,Ennemis restants : %d,Enemies left: %d
+RETURN_LOBBY,Retour au salon,Return to lobby
+ROOM_CLEARED,Salle vidée,Room cleared
+NEXT_ROOM,Salle suivante,Next room
+CLAIM_REWARD,Réclamer la récompense,Claim reward
+ROOM_STATUS,Salle %d/%d   ·   Vos PV : %d/%d   ·   %s,Room %d/%d   ·   Your HP: %d/%d   ·   %s
+UPDATER_CHECK,Vérification des mises à jour…,Checking for updates…
+UPDATER_DOWNLOAD,Téléchargement de la version %s…,Downloading version %s…
+UPDATER_INSTALL,Installation de la version %s…,Installing version %s…
+UPDATER_OFFLINE,Mise à jour indisponible. Lancement de la version installée.,Update unavailable. Starting the installed version.
+UPDATER_FIRST_FAILED,Mise à jour indisponible. Réessaie pour installer le jeu.,Update unavailable. Retry to install the game.
+UPDATER_LAUNCH_FAILED,Impossible de lancer le jeu.,Could not start the game.
+UPDATER_START,Lancement du jeu…,Starting the game…
+UPDATER_RETRY,Réessayer,Retry
