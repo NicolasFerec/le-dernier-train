@@ -635,7 +635,7 @@ func _broadcast_state() -> void:
 		roster[id] = [player.slot, player.position, player.hp, player.facing, player.attack_time,
 			player.dash_time, player.max_hp, player.reach, player.attack_delay,
 			player.dash_cooldown, player.character, player.weapon, player.movement, player.dash_direction, player.speed,
-			player.attack_origin, player.attack_direction, player.heavy_attack]
+			player.attack_origin, player.attack_direction, player.heavy_attack, player.reverse_light_swing]
 	var enemy_states := []
 	for enemy in enemies:
 		enemy_states.append([enemy.position, enemy.hp, enemy.facing, enemy.moving, enemy.hit_cooldown])
@@ -678,6 +678,7 @@ func _receive_state(number: int, token: int, epoch: int, roster: Dictionary, ene
 		player.attack_origin = state[15]
 		player.attack_direction = state[16]
 		player.heavy_attack = state.size() > 17 and state[17]
+		player.reverse_light_swing = state.size() > 18 and state[18]
 	for index in enemy_states.size():
 		var state: Array = enemy_states[index]
 		if index == enemies.size():

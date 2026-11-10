@@ -45,7 +45,7 @@ func _update_sprite() -> void:
 		direction = actor.dash_direction
 		progress = 1.0 - actor.render_dash_time / PlayerLocomotion.DASH_DURATION
 	elif actor.swing_progress() < 1.0:
-		move = "sword-slash"
+		move = "sword-slash" if actor.heavy_attack else "sword-attack-1"
 		direction = actor.attack_direction
 		progress = actor.swing_progress()
 	elif actor.render_movement != Vector2.ZERO:
@@ -75,7 +75,6 @@ func _draw() -> void:
 	var facing := Vector2.from_angle(snappedf(direction, PI / 4))
 	var attack := 1.0 - float(actor.swing_progress())
 	var attack_angle: float = actor.attack_direction.angle()
-	var half_angle := acos(actor.SWING_MIN_DOT)
 	var swing_edge := attack_angle + float(actor.swing_offset(1.0 - attack))
 	var weapon_facing := (Isometric.GROUND * Vector2(actor.attack_direction)).normalized() if attack > 0 else facing
 	var dashing: bool = actor.render_dash_time > 0
@@ -105,7 +104,7 @@ func _draw() -> void:
 			var start := Vector2(0, -8 - offset) - facing * 12
 			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
-		_draw_swing(attack, team, attack_angle + half_angle, swing_edge)
+		_draw_swing(attack, team, attack_angle + actor.swing_offset(0.0), swing_edge)
 
 	if sprite.visible:
 		return
@@ -180,6 +179,12 @@ func _draw_weapon(hand: Vector2, angle: float, scout: bool) -> void:
 func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -> void:
 	var points := PackedVector2Array()
 	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
+	if not actor.heavy_attack:
+		var inner: Vector2 = Vector2.from_angle(start_angle) * actor.swing_reach() * 0.30
+		var tip: Vector2 = Vector2.from_angle(edge) * actor.swing_reach()
+		draw_line(origin + Isometric.GROUND * inner, origin + Isometric.GROUND * tip,
+			Color(color, 0.8 * sin(PI * attack)), 2.0, true)
+		return
 	for index in range(16):
 		var ray := Vector2.from_angle(lerpf(minf(start_angle, edge + 1.6), edge, index / 15.0))
 		points.append(origin + Isometric.GROUND * (ray * actor.reach))

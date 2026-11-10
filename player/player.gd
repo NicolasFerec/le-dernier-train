@@ -4,7 +4,8 @@ const COLORS := [Color.SKY_BLUE, Color.GOLD, Color.LIGHT_GREEN, Color.VIOLET]
 
 const SWING_TIME := 0.16
 const HEAVY_SWING_TIME := 0.32
-const SWING_MIN_DOT := 0.4
+const HEAVY_SWING_HALF_ANGLE := acos(0.4)
+const LIGHT_SWING_HALF_ANGLE := deg_to_rad(14.0)
 const VISUAL := preload("res://player/character_visual.tscn")
 
 var character := 0
@@ -17,6 +18,7 @@ var damage := 1
 var attack_delay := 0.36
 var attack_time := 0.0
 var heavy_attack := false
+var reverse_light_swing := true
 var attack_hits := {}
 var attack_origin := Vector2.ZERO
 var attack_direction := Vector2.RIGHT
@@ -48,6 +50,8 @@ func start_attack(heavy: bool) -> void:
 	var light_delay := 0.36 if weapon == 0 else (0.58 if character == 0 else 0.23)
 	attack_delay = light_delay * (2.0 if heavy else 1.0)
 	heavy_attack = heavy
+	if not heavy:
+		reverse_light_swing = not reverse_light_swing
 	attack_hits.clear()
 	attack_origin = position
 	attack_direction = facing
@@ -59,18 +63,26 @@ func swing_progress() -> float:
 
 
 func swing_offset(progress: float) -> float:
-	var half_angle := acos(SWING_MIN_DOT)
+	var half_angle := HEAVY_SWING_HALF_ANGLE if heavy_attack else LIGHT_SWING_HALF_ANGLE
+	if not heavy_attack and reverse_light_swing:
+		half_angle = -half_angle
 	return lerpf(half_angle, -half_angle, progress)
+
+
+func swing_reach() -> float:
+	return reach if heavy_attack else reach * 0.85
 
 
 func swept_hit(target: Variant, point: Vector2, previous: float, padding := 0.0) -> bool:
 	if attack_hits.has(target):
 		return false
 	var offset := point - attack_origin
-	if offset.length_squared() > (reach + padding) ** 2:
+	if offset.length_squared() > (swing_reach() + padding) ** 2:
 		return false
 	var angle := attack_direction.angle_to(offset)
-	if angle > swing_offset(previous) or angle < swing_offset(swing_progress()):
+	var start := swing_offset(previous)
+	var end := swing_offset(swing_progress())
+	if angle < minf(start, end) or angle > maxf(start, end):
 		return false
 	attack_hits[target] = true
 	return true
