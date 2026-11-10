@@ -3,6 +3,7 @@ extends PlayerLocomotion
 const COLORS := [Color.SKY_BLUE, Color.GOLD, Color.LIGHT_GREEN, Color.VIOLET]
 
 const SWING_TIME := 0.16
+const HEAVY_SWING_TIME := 0.32
 const SWING_MIN_DOT := 0.4
 const VISUAL := preload("res://player/character_visual.tscn")
 
@@ -54,7 +55,7 @@ func start_attack(heavy: bool) -> void:
 
 
 func swing_progress() -> float:
-	return clampf((attack_delay - attack_time) / SWING_TIME, 0.0, 1.0)
+	return clampf((attack_delay - attack_time) / (HEAVY_SWING_TIME if heavy_attack else SWING_TIME), 0.0, 1.0)
 
 
 func swing_offset(progress: float) -> float:

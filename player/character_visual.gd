@@ -44,10 +44,10 @@ func _update_sprite() -> void:
 		move = "roll"
 		direction = actor.dash_direction
 		progress = 1.0 - actor.render_dash_time / PlayerLocomotion.DASH_DURATION
-	elif actor.attack_time > actor.attack_delay - actor.SWING_TIME:
+	elif actor.swing_progress() < 1.0:
 		move = "sword-slash"
 		direction = actor.attack_direction
-		progress = (actor.attack_delay - actor.attack_time) / actor.SWING_TIME
+		progress = actor.swing_progress()
 	elif actor.render_movement != Vector2.ZERO:
 		move = "run"
 	var angle := (Isometric.GROUND * direction).angle()
