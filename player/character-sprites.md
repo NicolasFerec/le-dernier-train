@@ -17,8 +17,8 @@ Extraire le dossier `64px` de l’archive Godot dans `assets/mythryl-local/`. La
 | Garde | `sword-ready-<direction>`, en boucle à 8 i/s |
 | Course | `run-<direction>`, en boucle à 15 i/s |
 | Esquive | `roll-<direction>`, jouée une fois sur les 160 ms de l’esquive |
-| Attaque légère | `sword-attack-1-<direction>`, 160 ms |
-| Attaque lourde | `sword-slash-<direction>`, 320 ms |
+| Attaque légère | `sword-attack-1-<direction>` et `sword-attack-2-<direction>` en alternance, 160 ms |
+| Attaque lourde | `sword-heavy-<direction>`, 320 ms |
 
 L’épée est incluse dans les images de garde et de frappe du prototype. Garder le point d’appui stable et laisser de la marge pour la lame. Le nombre de colonnes peut varier selon le mouvement. Dans l’éditeur, associer les cellules à une ressource SpriteFrames qui expose les mêmes noms. La garde et la course utilisent la cadence de la ressource. L’esquive et la frappe échantillonnent la progression de l’action du jeu sur toute la séquence. Le jeu applique les dégâts quand le front du balayage passe sur la cible. Pour une future planche, aligner la trajectoire de la lame sur le balayage de gameplay, du premier bord de l’arc au dernier. À cette cadence, une séquence trop longue saute des poses à l’écran.
 

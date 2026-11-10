@@ -45,7 +45,10 @@ func _update_sprite() -> void:
 		direction = actor.dash_direction
 		progress = 1.0 - actor.render_dash_time / PlayerLocomotion.DASH_DURATION
 	elif actor.swing_progress() < 1.0:
-		move = "sword-slash" if actor.heavy_attack else "sword-attack-1"
+		if actor.heavy_attack:
+			move = "sword-heavy"
+		else:
+			move = "sword-attack-2" if actor.reverse_light_swing else "sword-attack-1"
 		direction = actor.attack_direction
 		progress = actor.swing_progress()
 	elif actor.render_movement != Vector2.ZERO:
@@ -107,6 +110,9 @@ func _draw() -> void:
 		_draw_swing(attack, team, attack_angle + actor.swing_offset(0.0), swing_edge)
 
 	if sprite.visible:
+		if sprite.animation.begins_with("run-"):
+			var carry_hand := Vector2(12.0 * signf(facing.x), -23.0) + facing * stride * 0.5
+			_draw_weapon(carry_hand, facing.angle() + PI - facing.x * 0.35, false)
 		return
 
 	for side in [-1, 1]:
