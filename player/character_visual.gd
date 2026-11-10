@@ -4,12 +4,21 @@ const INK := Color("#202630")
 const STEEL := Color("#c3d6d5")
 const BRASS := Color("#e6b379")
 
+const PROTOTYPE_FRAMES := "res://assets/mythryl-local/64px/godot/colour.tres"
+const DIRECTIONS := ["e", "se", "s", "sw", "w", "nw", "n", "ne"]
+
+var prototype_frames: SpriteFrames
+@onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
+
 var actor: Node2D
 var gait := 0.0
 var breathing := 0.0
 
 
 func _ready() -> void:
+	if ResourceLoader.exists(PROTOTYPE_FRAMES, "SpriteFrames"):
+		prototype_frames = load(PROTOTYPE_FRAMES) as SpriteFrames
+		sprite.sprite_frames = prototype_frames
 	_process(0.0)
 
 
@@ -21,7 +30,38 @@ func _process(delta: float) -> void:
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
 	z_index = Isometric.depth(projected.y)
+	sprite.visible = prototype_frames != null and actor.character == 0 and actor.weapon == 0 and actor.hp > 0
+	if sprite.visible:
+		_update_sprite()
 	queue_redraw()
+
+
+func _update_sprite() -> void:
+	var move := "sword-ready"
+	var direction: Vector2 = actor.render_facing
+	var progress := -1.0
+	if actor.render_dash_time > 0.0:
+		move = "roll"
+		direction = actor.dash_direction
+		progress = 1.0 - actor.render_dash_time / PlayerLocomotion.DASH_DURATION
+	elif actor.attack_time > actor.attack_delay - actor.SWING_TIME:
+		move = "sword-slash"
+		direction = actor.attack_direction
+		progress = (actor.attack_delay - actor.attack_time) / actor.SWING_TIME
+	elif actor.render_movement != Vector2.ZERO:
+		move = "run"
+	var angle := (Isometric.GROUND * direction).angle()
+	var animation := StringName("%s-%s" % [move, DIRECTIONS[posmod(roundi(angle / (PI / 4)), 8)]])
+	if progress >= 0.0:
+		sprite.pause()
+		sprite.animation = animation
+		var count := prototype_frames.get_frame_count(animation)
+		var frame_position := clampf(progress * count, 0.0, count - 0.001)
+		sprite.set_frame_and_progress(floori(frame_position), fposmod(frame_position, 1.0))
+	elif actor.paused:
+		sprite.pause()
+	else:
+		sprite.play(animation)
 
 
 func _draw() -> void:
@@ -66,6 +106,9 @@ func _draw() -> void:
 			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
 		_draw_swing(attack, team, attack_angle - half_angle, swing_edge)
+
+	if sprite.visible:
+		return
 
 	for side in [-1, 1]:
 		var foot: Vector2 = Vector2(side * 6 * width, -1) + facing * side * stride

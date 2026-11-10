@@ -4,7 +4,7 @@ const COLORS := [Color.SKY_BLUE, Color.GOLD, Color.LIGHT_GREEN, Color.VIOLET]
 
 const SWING_TIME := 0.16
 const SWING_MIN_DOT := 0.4
-const VISUAL := preload("res://player/character_visual.gd")
+const VISUAL := preload("res://player/character_visual.tscn")
 
 var character := 0
 var weapon := 0
@@ -25,7 +25,7 @@ var render_dash_time := 0.0
 
 
 func _ready() -> void:
-	var visual := VISUAL.new()
+	var visual := VISUAL.instantiate()
 	visual.actor = self
 	add_child(visual)
 

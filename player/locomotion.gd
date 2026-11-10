@@ -3,6 +3,7 @@ extends Node2D
 
 const DASH_COOLDOWN := 0.65
 const DASH_SPEED := 550.0
+const DASH_DURATION := 0.16
 
 var hp := 5
 var speed := 220.0
@@ -28,6 +29,6 @@ func dodge() -> bool:
 	if hp <= 0 or dash_cooldown > 0:
 		return false
 	dash_direction = facing if movement == Vector2.ZERO else movement.normalized()
-	dash_time = 0.16
+	dash_time = DASH_DURATION
 	dash_cooldown = DASH_COOLDOWN
 	return true
