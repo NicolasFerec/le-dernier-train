@@ -7,6 +7,16 @@ if [[ ${1:?Indiquer le tag de la release} != "v$version" ]]; then
     exit 1
 fi
 
+channel=${3:-latest}
+if [[ $channel != latest && $channel != dev ]]; then
+    echo "Canal inconnu ($channel)." >&2
+    exit 1
+fi
+suffix=""
+if [[ $channel == dev ]]; then
+    suffix="-$version"
+fi
+
 output=$(realpath -m "${2:?Indiquer le dossier de sortie}")
 mkdir -p "$output"
 stage=$(mktemp -d)
@@ -35,7 +45,7 @@ for platform in windows linux; do
         extension=x86_64
         libraries=(libsteam_api.so libgodotsteam.linux.template_release.x86_64.so)
     fi
-    godot --headless --path . --export-release "$preset" "$directory/Arene-coop.$extension"
+    godot --headless --path . --export-release "$preset" "$directory/Le-Dernier-Train.$extension"
     for library in "${libraries[@]}"; do
         test -s "$directory/$library"
     done
@@ -48,21 +58,33 @@ for platform in windows linux; do
         printf '\n\nThird-party license: netfox and netfox.internals\n\n'
         cat addons/netfox/LICENSE
     } >> "$directory/GODOT-COPYRIGHT.txt"
-    (cd "$directory"; zip -q "$output/Arene-coop-$platform-x86_64.zip" ./*)
-    godot --headless --path "$stage/launcher" --export-release "$preset" "$output/Arene-coop-Lanceur-$platform-x86_64.$extension"
+    (cd "$directory"; zip -q "$output/Le-Dernier-Train-$platform-x86_64$suffix.zip" ./*)
+    if [[ $channel == latest ]]; then
+        # Existing launchers hardcode both the archive name and the executable inside it.
+        mv "$directory/Le-Dernier-Train.$extension" "$directory/Arene-coop.$extension"
+        (cd "$directory"; zip -q "$output/Arene-coop-$platform-x86_64.zip" ./*)
+    fi
+    godot --headless --path "$stage/launcher" --export-release "$preset" "$output/Le-Dernier-Train-Lanceur-$platform-x86_64.$extension"
 done
 
-python3 - "$version" "$output" <<'PY'
+python3 - "$version" "$output" "$channel" <<'PY'
 import hashlib
 import json
 import pathlib
 import sys
 
-version, directory = sys.argv[1:]
+version, directory, channel = sys.argv[1:]
 output = pathlib.Path(directory)
-checksums = {}
-for platform in ("windows-x86_64", "linux-x86_64"):
-    with (output / f"Arene-coop-{platform}.zip").open("rb") as archive:
-        checksums[platform] = hashlib.file_digest(archive, "sha256").hexdigest()
-(output / "update.json").write_text(json.dumps({"version": version, "sha256": checksums}) + "\n")
+manifest = {"version": version}
+suffix = f"-{version}" if channel == "dev" else ""
+packages = [("packages_sha256", "Le-Dernier-Train")]
+if channel == "latest":
+    packages.append(("sha256", "Arene-coop"))
+for key, prefix in packages:
+    checksums = {}
+    for platform in ("windows-x86_64", "linux-x86_64"):
+        with (output / f"{prefix}-{platform}{suffix}.zip").open("rb") as archive:
+            checksums[platform] = hashlib.file_digest(archive, "sha256").hexdigest()
+    manifest[key] = checksums
+(output / "update.json").write_text(json.dumps(manifest) + "\n")
 PY

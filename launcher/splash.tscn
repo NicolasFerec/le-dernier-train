@@ -11,7 +11,7 @@ offset_top = 38.0
 offset_right = 444.0
 theme_override_colors/font_color = Color(1, 0.8, 0.54, 1)
 theme_override_font_sizes/font_size = 32
-text = "Arène coop"
+text = "Le Dernier Train"
 
 [node name="Status" type="Label" parent="."]
 offset_left = 36.0
@@ -33,3 +33,26 @@ offset_top = 201.0
 offset_right = 145.0
 visible = false
 text = "UPDATER_RETRY"
+
+[node name="ChannelOptions" type="HBoxContainer" parent="."]
+visible = false
+offset_left = 36.0
+offset_top = 156.0
+offset_right = 444.0
+offset_bottom = 188.0
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="ChannelOptions"]
+layout_mode = 2
+text = "SETTINGS_UPDATE_CHANNEL"
+
+[node name="Channel" type="OptionButton" parent="ChannelOptions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ChooseChannel" type="Button" parent="."]
+visible = false
+offset_left = 36.0
+offset_top = 201.0
+offset_right = 145.0
+text = "MENU_PLAY"

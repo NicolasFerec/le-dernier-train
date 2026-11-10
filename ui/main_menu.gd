@@ -7,6 +7,7 @@ const FPS_PRESETS: Array[int] = [30, 60, 75, 90, 120, 144, 165, 180, 240]
 @onready var settings: PanelContainer = $Center/Settings
 @onready var status: Label = $Center/Settings/Rows/Status
 @onready var tabs: TabContainer = $Center/Settings/Rows/Tabs
+@onready var update_channel: OptionButton = $Center/Settings/Rows/Tabs/General/Content/UpdateRow/Channel
 @onready var graphics: GridContainer = $Center/Settings/Rows/Tabs/Graphics/Content/Grid
 @onready var screens: OptionButton = $Center/Settings/Rows/Tabs/Graphics/Content/Grid/Screen
 @onready var resolutions: OptionButton = $Center/Settings/Rows/Tabs/Graphics/Content/Grid/Resolution
@@ -29,7 +30,7 @@ func _ready() -> void:
 	ControlHints.changed.connect(_refresh_tab_shortcuts)
 	_refresh_tab_shortcuts()
 	_translate_settings()
-	var language: OptionButton = $Center/Settings/Rows/Tabs/General/LanguageRow/Language
+	var language: OptionButton = $Center/Settings/Rows/Tabs/General/Content/LanguageRow/Language
 	language.add_item("Français")
 	language.add_item("English")
 	language.select(1 if TranslationServer.get_locale() == "en" else 0)
@@ -39,6 +40,10 @@ func _ready() -> void:
 		_refresh_screens()
 		_refresh_resolutions()
 		_update_fps_label()
+	)
+	update_channel.item_selected.connect(func(index: int):
+		GameSettings.preferences.set_value("updates", "channel", "dev" if index == 1 else "latest")
+		status.text = "" if GameSettings.save() == OK else tr("SETTINGS_SAVE_FAILED")
 	)
 	var audio := $Center/Settings/Rows/Tabs/Audio/Grid
 	for bus in GameSettings.BUSES:
@@ -102,6 +107,10 @@ func _translate_settings() -> void:
 	tabs.set_tab_title(0, tr("SETTINGS_AUDIO"))
 	tabs.set_tab_title(1, tr("SETTINGS_GRAPHICS"))
 	tabs.set_tab_title(2, tr("SETTINGS_GENERAL"))
+	update_channel.clear()
+	update_channel.add_item(tr("SETTINGS_UPDATE_LATEST"))
+	update_channel.add_item(tr("SETTINGS_UPDATE_DEV"))
+	update_channel.select(1 if GameSettings.preferences.get_value("updates", "channel", "latest") == "dev" else 0)
 
 
 func _layout() -> void:

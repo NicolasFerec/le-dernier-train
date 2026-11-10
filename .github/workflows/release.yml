@@ -1,13 +1,18 @@
 name: Release
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   package:
-    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    if: github.event_name == 'push' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v'))
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +37,49 @@ jobs:
           echo "7142662c9eb5007ce6cb3b28027fb75480ecf0013f61b104afae0f779d7c026c  $RUNNER_TEMP/steam.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/steam.zip" 'addons/godotsteam/godotsteam.gdextension' 'addons/godotsteam/license.md' 'addons/godotsteam/linux64/*' 'addons/godotsteam/win64/*'
       - name: Package Windows and Linux
-        run: scripts/package-release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
-      - name: Publish release
+        run: |
+          set -euo pipefail
+          if [[ $GITHUB_EVENT_NAME == push ]]; then
+            version="0.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+            sed -i "s/^config\/version=.*/config\/version=\"$version\"/" project.godot
+            scripts/package-release.sh "v$version" "$RUNNER_TEMP/release" dev
+          else
+            scripts/package-release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
+          fi
+      - name: Publish stable release
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/release/"* --verify-tag --generate-notes --draft
+          previous=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/release/"* --verify-tag --generate-notes --notes-start-tag "$previous" --draft
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+      - name: Update rolling Dev prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A rerun of an older merge must not replace the current Dev build.
+          if [[ $(git ls-remote origin refs/heads/main | cut -f1) != "$GITHUB_SHA" ]]; then
+            exit 0
+          fi
+          cd "$RUNNER_TEMP/release"
+          version=$(jq -r .version update.json)
+          notes="Build $version from $GITHUB_SHA"
+          git -C "$GITHUB_WORKSPACE" push --force origin "$GITHUB_SHA:refs/tags/dev"
+          if ! gh release view dev --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create dev --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "Le Dernier Train Dev" --notes "$notes"
+          fi
+          gh release upload dev Le-Dernier-Train-* --repo "$GITHUB_REPOSITORY" --clobber
+          # Switch the manifest after both platform packages are available.
+          gh release upload dev update.json --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit dev --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false --notes "$notes"
+          # Keep the previous archives for launchers already using the old manifest.
+          assets=$(gh release view dev --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          for platform in linux windows; do
+            printf '%s\n' "$assets" | sed -n "/^Le-Dernier-Train-$platform-x86_64-.*\.zip$/p" | sort -V | head -n -2 |
+              while IFS= read -r asset; do
+                gh release delete-asset dev "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              done
+          done
