@@ -1,4 +1,4 @@
-# Arène coop
+# Le Dernier Train
 
 Prototype d’action 2D en GDScript pour Godot 4.7.2 Standard.
 Voir la [vision du jeu](VISION.md) pour la boucle cible, la progression et les priorités du prototype.
@@ -59,7 +59,7 @@ Le jeu démarre en français. Le sélecteur dans **Réglages → Général** per
 
 Teste d’abord les changements en local, puis ouvre une PR pour review. Une fois les changements intégrés et la release demandée, pousse le tag correspondant à `application/config/version` dans `project.godot`. Lance ensuite le workflow manuellement sur ce tag, par exemple avec `gh workflow run release.yml --ref v0.1.6`. Le workflow construit les paquets Windows et Linux x86‑64, puis publie les deux lanceurs, le manifeste de mise à jour et le changelog généré par GitHub.
 
-Télécharge le lanceur de ta plateforme depuis les releases. Sous Linux, rends le fichier exécutable avec `chmod +x`. Au premier démarrage, il télécharge le jeu. Aux suivants, il affiche l’avancement de la mise à jour, puis lance automatiquement le jeu. Si GitHub est indisponible, il affiche brièvement un message et démarre la version installée. Les versions du jeu et les sauvegardes sont stockées séparément.
+Télécharge le fichier `Le-Dernier-Train-Lanceur-…` de ta plateforme depuis les releases. Les ZIP `Arene-coop-…` restent disponibles pour la mise à jour automatique des anciens lanceurs. Sous Linux, rends le fichier exécutable avec `chmod +x`. Au premier démarrage, il télécharge le jeu. Aux suivants, il affiche l’avancement de la mise à jour, puis lance automatiquement le jeu. Si GitHub est indisponible, il affiche brièvement un message et démarre la version installée. Les versions du jeu et les sauvegardes sont stockées séparément.
 
 Sous Linux, au premier démarrage réussi avec ce lanceur, **Le Dernier Train** apparaît dans la catégorie **Jeux** du menu des applications de KDE. Cette entrée ouvre la copie installée du lanceur et conserve la vérification des mises à jour. Tu peux ensuite supprimer le fichier téléchargé.
 

@@ -24,7 +24,8 @@ func _ready() -> void:
 			if label.is_valid_identifier():
 				path = "user://profile_%s.cfg" % label
 	var file := ConfigFile.new()
-	if file.load(path) == OK:
+	var source := path if FileAccess.file_exists(path) else "user://../Arène coop".path_join(path.get_file())
+	if file.load(source) == OK:
 		points = maxi(0, int(file.get_value("profile", "points", 0)))
 		for item in ITEMS:
 			if file.get_value("unlocks", item, false) == true:

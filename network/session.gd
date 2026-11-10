@@ -9,7 +9,7 @@ signal roster_changed
 
 const PORT := 7000
 const MAX_PLAYERS := 4
-const WIRE_PROTOCOL := "godot-roguelite-9"
+const WIRE_PROTOCOL := "le-dernier-train-9"
 
 var version: String = ProjectSettings.get_setting("application/config/version")
 @onready var scene_network: SceneMultiplayer = multiplayer

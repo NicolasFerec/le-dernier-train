@@ -11,7 +11,7 @@ offset_top = 38.0
 offset_right = 444.0
 theme_override_colors/font_color = Color(1, 0.8, 0.54, 1)
 theme_override_font_sizes/font_size = 32
-text = "Arène coop"
+text = "Le Dernier Train"
 
 [node name="Status" type="Label" parent="."]
 offset_left = 36.0
