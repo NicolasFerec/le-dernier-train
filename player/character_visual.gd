@@ -69,12 +69,18 @@ func _draw() -> void:
 			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
 		_draw_swing(attack, team, attack_angle - half_angle, swing_edge)
-		var swing_facing := snappedf(weapon_facing.angle(), PI / 4)
-		if not scout and actor.weapon == 0 and not dashing and is_equal_approx(swing_facing, PI / 4):
-			var frame := mini(3, floori(attack * 4.0))
-			var cell := Vector2(frame % 2, frame >> 1) * ATTACK_CELL
-			draw_texture_rect_region(ATTACK_SHEET, Rect2(-ATTACK_ANCHOR, ATTACK_CELL), Rect2(cell, ATTACK_CELL))
-			return
+
+	if not scout and actor.weapon == 0:
+		var frame := 3
+		if attack > 0 and not dashing:
+			frame = mini(3, floori(attack * 4.0))
+		var cell := Vector2(frame % 2, frame >> 1) * ATTACK_CELL
+		var flip := weapon_facing.x < -0.1
+		if flip:
+			draw_set_transform(Vector2.ZERO, 0, Vector2(-1, 1))
+		draw_texture_rect_region(ATTACK_SHEET, Rect2(-ATTACK_ANCHOR, ATTACK_CELL), Rect2(cell, ATTACK_CELL))
+		draw_set_transform(Vector2.ZERO)
+		return
 
 	for side in [-1, 1]:
 		var foot: Vector2 = Vector2(side * 6 * width, -1) + facing * side * stride
