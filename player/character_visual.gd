@@ -3,6 +3,9 @@ extends Node2D
 const INK := Color("#202630")
 const STEEL := Color("#c3d6d5")
 const BRASS := Color("#e6b379")
+const ATTACK_SHEET := preload("res://player/fighter_sword_attack.png")
+const ATTACK_CELL := Vector2(128, 96)
+const ATTACK_ANCHOR := Vector2(48, 72)
 
 var actor: Node2D
 var gait := 0.0
@@ -66,6 +69,18 @@ func _draw() -> void:
 			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
 		_draw_swing(attack, team, attack_angle - half_angle, swing_edge)
+
+	if not scout and actor.weapon == 0:
+		var frame := 3
+		if attack > 0 and not dashing:
+			frame = mini(3, floori(attack * 4.0))
+		var cell := Vector2(frame % 2, frame >> 1) * ATTACK_CELL
+		var flip := weapon_facing.x < -0.1
+		if flip:
+			draw_set_transform(Vector2.ZERO, 0, Vector2(-1, 1))
+		draw_texture_rect_region(ATTACK_SHEET, Rect2(-ATTACK_ANCHOR, ATTACK_CELL), Rect2(cell, ATTACK_CELL))
+		draw_set_transform(Vector2.ZERO)
+		return
 
 	for side in [-1, 1]:
 		var foot: Vector2 = Vector2(side * 6 * width, -1) + facing * side * stride
