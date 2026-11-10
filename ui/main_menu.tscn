@@ -246,18 +246,40 @@ theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="LanguageRow" type="HBoxContainer" parent="Center/Settings/Rows/Tabs/General"]
+[node name="Content" type="VBoxContainer" parent="Center/Settings/Rows/Tabs/General"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="LanguageRow" type="HBoxContainer" parent="Center/Settings/Rows/Tabs/General/Content"]
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_constants/separation = 20
 
-[node name="Label" type="Label" parent="Center/Settings/Rows/Tabs/General/LanguageRow"]
+[node name="Label" type="Label" parent="Center/Settings/Rows/Tabs/General/Content/LanguageRow"]
 layout_mode = 2
 text = "SETTINGS_LANGUAGE"
 
-[node name="Language" type="OptionButton" parent="Center/Settings/Rows/Tabs/General/LanguageRow"]
+[node name="Language" type="OptionButton" parent="Center/Settings/Rows/Tabs/General/Content/LanguageRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="UpdateRow" type="HBoxContainer" parent="Center/Settings/Rows/Tabs/General/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Label" type="Label" parent="Center/Settings/Rows/Tabs/General/Content/UpdateRow"]
+layout_mode = 2
+text = "SETTINGS_UPDATE_CHANNEL"
+
+[node name="Channel" type="OptionButton" parent="Center/Settings/Rows/Tabs/General/Content/UpdateRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UpdateHint" type="Label" parent="Center/Settings/Rows/Tabs/General/Content"]
+layout_mode = 2
+text = "SETTINGS_UPDATE_HINT"
+autowrap_mode = 2
 
 [node name="Status" type="Label" parent="Center/Settings/Rows"]
 layout_mode = 2

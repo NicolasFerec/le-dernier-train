@@ -128,3 +128,8 @@ ROOM_GATE_COUNTDOWN,Départ dans %d s,Departing in %d s
 ROOM_GATE_RETURN,Retour au train,Return to the train
 PAUSE_HOST_ONLY,Seul l’hôte peut mettre la partie en pause,Only the host can pause the game
 PAUSE_BY_HOST,Partie mise en pause par l’hôte,Game paused by the host
+SETTINGS_UPDATE_CHANNEL,Canal de mise à jour,Update channel
+SETTINGS_UPDATE_LATEST,Stable,Stable
+SETTINGS_UPDATE_DEV,Dev,Dev
+SETTINGS_UPDATE_HINT,Le choix s’applique au prochain démarrage via le lanceur.,Your choice applies the next time you start from the launcher.
+UPDATER_DEV_FALLBACK,Version Dev indisponible. Recherche de la version stable…,Dev build unavailable. Checking for the stable version…

@@ -10,4 +10,5 @@ Le français est la langue par défaut. Pour chaque ajout ou modification de tex
 
 - Tester les modifications avec la version de développement en local sur cet ordinateur. Éviter les builds GitHub Actions et les releases pour les itérations de développement.
 - Une fois les changements validés localement, ouvrir une PR et attendre la review.
-- Après la review, préparer et publier une release uniquement sur demande explicite de l’utilisateur. Générer automatiquement le changelog à partir des changements GitHub depuis la release précédente.
+- Après la review, préparer et publier une release stable uniquement sur demande explicite de l’utilisateur. Générer automatiquement le changelog à partir des changements GitHub depuis la release précédente.
+- Chaque mise à jour de `main` après fusion reconstruit les paquets du canal Dev sur la préversion GitHub `dev`.

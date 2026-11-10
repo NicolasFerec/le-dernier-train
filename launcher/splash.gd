@@ -2,9 +2,11 @@ extends Control
 
 const RELEASE_ROOT := "https://github.com/NicolasFerec/le-dernier-train/releases/"
 const GAME_DATA := "user://../Le Dernier Train"
+const PREFERENCES := GAME_DATA + "/preferences.cfg"
 const LEGACY_GAME_DATA := "user://../Arène coop"
 const LEGACY_INSTALL_ROOT := "user://../Arène coop Launcher/versions"
 const INSTALL_ROOT := "user://versions"
+const DEV_INSTALL_ROOT := "user://dev-versions"
 
 var platform := "windows-x86_64" if OS.get_name() == "Windows" else "linux-x86_64"
 var extension := ".exe" if OS.get_name() == "Windows" else ".x86_64"
@@ -13,18 +15,50 @@ var legacy_executable := "Arene-coop" + extension
 var version_pattern := RegEx.create_from_string("^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$")
 var request := HTTPRequest.new()
 var archive_path := ""
+var use_dev := false
+var preferences := ConfigFile.new()
+var game_arguments := OS.get_cmdline_user_args()
 
 
 func _ready() -> void:
-	var preferences := ConfigFile.new()
-	var preferences_path := GAME_DATA.path_join("preferences.cfg")
+	var preferences_path := PREFERENCES
 	if not FileAccess.file_exists(preferences_path):
 		preferences_path = LEGACY_GAME_DATA.path_join("preferences.cfg")
 	preferences.load(preferences_path)
 	TranslationServer.set_locale(preferences.get_value("interface", "language", "fr"))
+	use_dev = preferences.get_value("updates", "channel", "latest") == "dev"
 	add_child(request)
 	request.use_threads = true
 	$Retry.pressed.connect(_start)
+	$ChooseChannel.pressed.connect(_save_channel)
+	var open_options := game_arguments.has("--launcher-settings")
+	if open_options:
+		game_arguments.remove_at(game_arguments.find("--launcher-settings"))
+	if open_options or not preferences.has_section_key("updates", "channel"):
+		_show_channel_options()
+	else:
+		_start()
+
+
+func _show_channel_options() -> void:
+	$Progress.hide()
+	$Status.text = ""
+	$ChannelOptions/Channel.add_item(tr("SETTINGS_UPDATE_LATEST"))
+	$ChannelOptions/Channel.add_item(tr("SETTINGS_UPDATE_DEV"))
+	$ChannelOptions/Channel.select(1 if use_dev else 0)
+	$ChannelOptions.show()
+	$ChooseChannel.show()
+	$ChannelOptions/Channel.grab_focus()
+
+
+func _save_channel() -> void:
+	use_dev = $ChannelOptions/Channel.selected == 1
+	preferences.set_value("updates", "channel", "dev" if use_dev else "latest")
+	if DirAccess.make_dir_recursive_absolute(GAME_DATA) != OK or preferences.save(PREFERENCES) != OK:
+		$Status.text = tr("SETTINGS_SAVE_FAILED")
+		return
+	$ChannelOptions.hide()
+	$ChooseChannel.hide()
 	_start()
 
 
@@ -37,22 +71,31 @@ func _process(_delta: float) -> void:
 
 func _start() -> void:
 	$Retry.hide()
+	$Progress.show()
 	$Progress.value = 0
 	$Status.text = tr("UPDATER_CHECK")
-	var installed := _installed_versions()
-	if not await _update(installed):
+	var installed := _installed_versions(use_dev)
+	if not await _update(installed, use_dev):
+		if use_dev and installed.is_empty():
+			$Status.text = tr("UPDATER_DEV_FALLBACK")
+			await get_tree().create_timer(1.4).timeout
+			installed = _installed_versions(false)
+			if await _update(installed, false) or not installed.is_empty():
+				_launch(_installed_versions(false), false)
+				return
 		$Status.text = tr("UPDATER_FIRST_FAILED" if installed.is_empty() else "UPDATER_OFFLINE")
 		if installed.is_empty():
 			$Retry.show()
 			return
 		await get_tree().create_timer(1.4).timeout
-	_launch(_installed_versions())
+	_launch(_installed_versions(use_dev), use_dev)
 
 
-func _update(installed: Array[String]) -> bool:
+func _update(installed: Array[String], dev: bool) -> bool:
 	request.timeout = 7
 	request.body_size_limit = 16384
-	if request.request(RELEASE_ROOT + "latest/download/update.json") != OK:
+	var manifest_path := "download/dev/update.json" if dev else "latest/download/update.json"
+	if request.request(RELEASE_ROOT + manifest_path) != OK:
 		return false
 	var response: Array = await request.request_completed
 	if response[0] != HTTPRequest.RESULT_SUCCESS or response[1] != 200:
@@ -66,6 +109,8 @@ func _update(installed: Array[String]) -> bool:
 	if not installed.is_empty() and not _newer(version, installed[0]):
 		return true
 	var legacy_package := not (manifest as Dictionary).has("packages_sha256")
+	if dev and legacy_package:
+		return false
 	var checksums = manifest.get("sha256" if legacy_package else "packages_sha256")
 	if not checksums is Dictionary:
 		return false
@@ -74,27 +119,30 @@ func _update(installed: Array[String]) -> bool:
 		return false
 
 	# A separate staging directory keeps interrupted downloads away from the installed game.
-	var staging := INSTALL_ROOT.path_join(version + "-" + str(OS.get_process_id()) + ".tmp")
+	var root := DEV_INSTALL_ROOT if dev else INSTALL_ROOT
+	var staging := root.path_join(version + "-" + str(OS.get_process_id()) + ".tmp")
 	if DirAccess.make_dir_recursive_absolute(staging) != OK:
 		return false
-	var downloaded := await _download(version, staging, checksum, legacy_package)
+	var downloaded := await _download(version, staging, checksum, legacy_package, dev)
 	if not downloaded:
 		return false
 	$Status.text = tr("UPDATER_INSTALL") % version
 	await RenderingServer.frame_post_draw
 	var installed_ok := _unpack(staging, legacy_package)
 	DirAccess.remove_absolute(staging.path_join("game.zip"))
-	return installed_ok and DirAccess.rename_absolute(staging, INSTALL_ROOT.path_join(version)) == OK
+	return installed_ok and DirAccess.rename_absolute(staging, root.path_join(version)) == OK
 
 
-func _download(version: String, staging: String, checksum: String, legacy_package: bool) -> bool:
+func _download(version: String, staging: String, checksum: String, legacy_package: bool, dev: bool) -> bool:
 	$Status.text = tr("UPDATER_DOWNLOAD") % version
 	archive_path = staging.path_join("game.zip")
 	request.timeout = 120
 	request.body_size_limit = 200 * 1024 * 1024
 	request.download_file = archive_path
 	var prefix := "Arene-coop-" if legacy_package else "Le-Dernier-Train-"
-	var started := request.request(RELEASE_ROOT + "download/v" + version + "/" + prefix + platform + ".zip")
+	var tag := "dev" if dev else "v" + version
+	var suffix := "-" + version if dev else ""
+	var started := request.request(RELEASE_ROOT + "download/" + tag + "/" + prefix + platform + suffix + ".zip")
 	var ok := false
 	if started == OK:
 		var response: Array = await request.request_completed
@@ -130,22 +178,26 @@ func _unpack(staging: String, legacy_package: bool) -> bool:
 	return true
 
 
-func _installed_versions() -> Array[String]:
+func _installed_versions(dev: bool) -> Array[String]:
 	var versions: Array[String] = []
-	for root in [INSTALL_ROOT, LEGACY_INSTALL_ROOT]:
+	var roots := [DEV_INSTALL_ROOT] if dev else [INSTALL_ROOT, LEGACY_INSTALL_ROOT]
+	for root: String in roots:
 		if not DirAccess.dir_exists_absolute(root):
 			continue
 		for folder in DirAccess.get_directories_at(root):
-			if version_pattern.search(folder) != null and not versions.has(folder) and _game_path(folder) != "":
+			if version_pattern.search(folder) != null and not versions.has(folder) and _game_path(folder, dev) != "":
 				versions.append(folder)
 	versions.sort_custom(_newer)
 	return versions
 
 
-func _game_path(version: String) -> String:
-	var current := INSTALL_ROOT.path_join(version).path_join(executable)
+func _game_path(version: String, dev: bool) -> String:
+	var root := DEV_INSTALL_ROOT if dev else INSTALL_ROOT
+	var current := root.path_join(version).path_join(executable)
 	if FileAccess.file_exists(current):
 		return ProjectSettings.globalize_path(current)
+	if dev:
+		return ""
 	var legacy := LEGACY_INSTALL_ROOT.path_join(version).path_join(legacy_executable)
 	return ProjectSettings.globalize_path(legacy) if FileAccess.file_exists(legacy) else ""
 
@@ -159,11 +211,11 @@ func _newer(a: String, b: String) -> bool:
 	return false
 
 
-func _launch(versions: Array[String]) -> void:
+func _launch(versions: Array[String], dev: bool) -> void:
 	$Status.text = tr("UPDATER_START")
 	for version in versions:
-		var path := _game_path(version)
-		if not path.is_empty() and OS.create_process(path, OS.get_cmdline_user_args()) != -1:
+		var path := _game_path(version, dev)
+		if not path.is_empty() and OS.create_process(path, game_arguments) != -1:
 			if OS.get_name() == "Linux" and OS.has_feature("template"):
 				var error := _install_linux_menu_entry()
 				if error != OK:

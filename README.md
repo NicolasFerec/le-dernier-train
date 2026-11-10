@@ -61,6 +61,8 @@ Teste d’abord les changements en local, puis ouvre une PR pour review. Une foi
 
 Télécharge le fichier `Le-Dernier-Train-Lanceur-…` de ta plateforme depuis les releases. Les ZIP `Arene-coop-…` restent disponibles pour la mise à jour automatique des anciens lanceurs. Sous Linux, rends le fichier exécutable avec `chmod +x`. Au premier démarrage, il télécharge le jeu. Aux suivants, il affiche l’avancement de la mise à jour, puis lance automatiquement le jeu. Si GitHub est indisponible, il affiche brièvement un message et démarre la version installée. Les versions du jeu et les sauvegardes sont stockées séparément.
 
+Dans **Réglages → Général → Canal de mise à jour**, **Stable** est sélectionné par défaut et suit la dernière release officielle GitHub. **Dev** suit la préversion roulante `dev`, reconstruite pour Windows et Linux à chaque mise à jour de `main`. Le nouveau lanceur propose aussi ce choix au premier démarrage. Pour rouvrir son sélecteur depuis un terminal, passe-lui `-- --launcher-settings`. Le choix fait dans le jeu s’applique au prochain lancement. Les installations des deux canaux sont séparées. Si Dev est indisponible, le lanceur utilise la version Dev déjà installée ou se rabat sur Stable si Dev n’a jamais été installé. Il faut utiliser un lanceur qui prend en charge les canaux.
+
 Sous Linux, au premier démarrage réussi avec ce lanceur, **Le Dernier Train** apparaît dans la catégorie **Jeux** du menu des applications de KDE. Cette entrée ouvre la copie installée du lanceur et conserve la vérification des mises à jour. Tu peux ensuite supprimer le fichier téléchargé.
 
 Pour tester la coop Steam depuis le lanceur Windows ou Linux, ouvre Steam et connecte-toi avant de lancer le jeu.
