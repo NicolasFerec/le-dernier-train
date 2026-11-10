@@ -180,8 +180,8 @@ func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -
 	var points := PackedVector2Array()
 	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
 	if not actor.heavy_attack:
-		var inner: Vector2 = Vector2.from_angle(start_angle) * actor.swing_reach() * 0.30
-		var tip: Vector2 = Vector2.from_angle(edge) * actor.swing_reach()
+		var inner: Vector2 = Vector2.from_angle(start_angle) * actor.reach * 0.30
+		var tip: Vector2 = Vector2.from_angle(edge) * actor.reach
 		draw_line(origin + Isometric.GROUND * inner, origin + Isometric.GROUND * tip,
 			Color(color, 0.8 * sin(PI * attack)), 2.0, true)
 		return

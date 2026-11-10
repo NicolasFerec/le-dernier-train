@@ -69,21 +69,24 @@ func swing_offset(progress: float) -> float:
 	return lerpf(half_angle, -half_angle, progress)
 
 
-func swing_reach() -> float:
-	return reach if heavy_attack else reach * 0.85
-
-
 func swept_hit(target: Variant, point: Vector2, previous: float, padding := 0.0) -> bool:
 	if attack_hits.has(target):
 		return false
 	var offset := point - attack_origin
-	if offset.length_squared() > (swing_reach() + padding) ** 2:
+	if offset.length_squared() > (reach + (padding if heavy_attack else 16.0)) ** 2:
 		return false
 	var angle := attack_direction.angle_to(offset)
 	var start := swing_offset(previous)
 	var end := swing_offset(swing_progress())
-	if angle < minf(start, end) or angle > maxf(start, end):
-		return false
+	var closest_angle := clampf(angle, minf(start, end), maxf(start, end))
+	if heavy_attack:
+		if angle != closest_angle:
+			return false
+	else:
+		var ray := attack_direction.rotated(closest_angle)
+		var closest_point := ray * clampf(offset.dot(ray), 0.0, reach)
+		if offset.distance_squared_to(closest_point) > 16.0 ** 2:
+			return false
 	attack_hits[target] = true
 	return true
 
