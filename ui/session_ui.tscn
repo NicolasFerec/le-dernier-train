@@ -1,98 +1,45 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/session_ui.gd" id="1"]
 [ext_resource type="Script" path="res://ui/combat_hud.gd" id="2"]
 
+[ext_resource type="PackedScene" path="res://ui/session_menu.tscn" id="3"]
+
+[ext_resource type="PackedScene" path="res://ui/invitation_menu.tscn" id="4"]
+
+[sub_resource type="StyleBoxFlat" id="DeparturePanel"]
+bg_color = Color(0.10, 0.13, 0.16, 0.96)
+border_width_bottom = 2
+border_color = Color(0.82, 0.62, 0.39, 1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_left = 7
+corner_radius_bottom_right = 7
+
 [node name="Interface" type="CanvasLayer"]
 script = ExtResource("1")
-
-[node name="Bar" type="HBoxContainer" parent="."]
-offset_left = 24.0
-offset_top = 18.0
-offset_right = 776.0
-theme_override_constants/separation = 10
-
-[node name="Host" type="Button" parent="Bar"]
-text = "HOST"
-focus_mode = 0
-
-[node name="Address" type="LineEdit" parent="Bar"]
-custom_minimum_size = Vector2(170, 0)
-text = "127.0.0.1"
-placeholder_text = "ADDRESS"
-
-[node name="Join" type="Button" parent="Bar"]
-text = "JOIN"
-focus_mode = 0
-
-[node name="SteamHost" type="Button" parent="Bar"]
-text = "STEAM_HOST"
-focus_mode = 0
-
-[node name="SteamJoin" type="Button" parent="Bar"]
-text = "STEAM_JOIN"
-focus_mode = 0
-
-[node name="SteamInvite" type="Button" parent="Bar"]
-text = "STEAM_INVITE"
-focus_mode = 0
-
-[node name="Leave" type="Button" parent="Bar"]
-text = "LEAVE"
-focus_mode = 0
 
 [node name="Status" type="Label" parent="."]
 offset_left = 24.0
 offset_top = 43.0
 offset_right = 776.0
 autowrap_mode = 2
+theme_override_constants/outline_size = 4
+theme_override_colors/font_outline_color = Color(0.07, 0.10, 0.13, 0.86)
 
 [node name="Help" type="Label" parent="."]
+visible = false
 offset_top = 484.0
-offset_left = 322.0
-text = "COMBAT_HELP"
-
-[node name="LobbyBackdrop" type="ColorRect" parent="."]
-offset_left = 198.0
-offset_top = 225.0
-offset_right = 602.0
-offset_bottom = 452.0
-mouse_filter = 2
-color = Color(0.08, 0.09, 0.14, 0.97)
-
-[node name="Lobby" type="VBoxContainer" parent="."]
-offset_left = 210.0
-offset_top = 235.0
-offset_right = 590.0
-theme_override_constants/separation = 6
-
-[node name="Title" type="Label" parent="Lobby"]
-theme_override_font_sizes/font_size = 25
-text = "LOBBY"
-horizontal_alignment = 1
-
-[node name="Points" type="Label" parent="Lobby"]
-
-[node name="Character" type="OptionButton" parent="Lobby"]
-
-[node name="Weapon" type="OptionButton" parent="Lobby"]
-
-[node name="Shop" type="VBoxContainer" parent="Lobby"]
-
-[node name="Notice" type="Label" parent="Lobby"]
-
-[node name="Start" type="Button" parent="Lobby"]
-text = "START"
-focus_mode = 0
-
-[node name="Waiting" type="Label" parent="Lobby"]
-text = "WAIT_HOST"
+offset_right = 800.0
+text = "COMBAT_HELP_KEYBOARD"
+horizontal_alignment = 2
+theme_override_constants/outline_size = 4
+theme_override_colors/font_outline_color = Color(0.07, 0.10, 0.13, 0.86)
 
 [node name="Advance" type="Button" parent="."]
 offset_left = 300.0
 offset_top = 400.0
 offset_right = 500.0
-focus_mode = 0
 
 [node name="HUD" type="Control" parent="."]
 offset_left = 24.0
@@ -102,15 +49,88 @@ offset_bottom = 509.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="Prompt" type="Label" parent="."]
-offset_left = 24.0
-offset_top = 479.0
-offset_right = 776.0
-horizontal_alignment = 1
-theme_override_colors/font_color = Color(0.95, 0.86, 0.73, 1)
+[node name="Departure" type="PanelContainer" parent="."]
+visible = false
+offset_left = 280.0
+offset_top = 78.0
+offset_right = 520.0
+offset_bottom = 111.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("DeparturePanel")
 
-[node name="Language" type="OptionButton" parent="."]
-offset_left = 674.0
-offset_top = 18.0
-offset_right = 776.0
-offset_bottom = 43.0
+[node name="Label" type="Label" parent="Departure"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.97, 0.89, 0.76, 1)
+
+[node name="MenuBackdrop" type="ColorRect" parent="."]
+visible = false
+offset_right = 800.0
+offset_bottom = 520.0
+color = Color(0.025, 0.035, 0.05, 0.84)
+
+[node name="StationMenu" type="CenterContainer" parent="."]
+visible = false
+offset_right = 800.0
+offset_bottom = 520.0
+
+[node name="Lobby" type="VBoxContainer" parent="StationMenu"]
+layout_mode = 2
+custom_minimum_size = Vector2(540, 0)
+theme_override_constants/separation = 9
+
+[node name="Title" type="Label" parent="StationMenu/Lobby"]
+theme_override_font_sizes/font_size = 34
+text = "LOBBY"
+horizontal_alignment = 1
+
+[node name="Points" type="Label" parent="StationMenu/Lobby"]
+
+[node name="Character" type="OptionButton" parent="StationMenu/Lobby"]
+custom_minimum_size = Vector2(0, 35)
+
+[node name="Weapon" type="OptionButton" parent="StationMenu/Lobby"]
+custom_minimum_size = Vector2(0, 35)
+
+[node name="Shop" type="VBoxContainer" parent="StationMenu/Lobby"]
+
+[node name="Notice" type="Label" parent="StationMenu/Lobby"]
+
+[node name="Start" type="Button" parent="StationMenu/Lobby"]
+custom_minimum_size = Vector2(0, 35)
+text = "START"
+
+[node name="Waiting" type="Label" parent="StationMenu/Lobby"]
+text = "WAIT_HOST"
+
+[node name="Back" type="Button" parent="StationMenu/Lobby"]
+custom_minimum_size = Vector2(0, 35)
+text = "MENU_BACK"
+
+[node name="SessionMenu" parent="." instance=ExtResource("3")]
+
+[node name="InvitationMenu" parent="." instance=ExtResource("4")]
+
+[node name="PauseNotice" type="PanelContainer" parent="."]
+visible = false
+offset_left = 184.0
+offset_top = 118.0
+offset_right = 616.0
+offset_bottom = 154.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("DeparturePanel")
+
+[node name="Label" type="Label" parent="PauseNotice"]
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.97, 0.89, 0.76, 1)
+
+[node name="PauseNoticeTimer" type="Timer" parent="."]
+wait_time = 1.8
+one_shot = true

@@ -144,7 +144,64 @@ func _launch(versions: Array[String]) -> void:
 	for version in versions:
 		var path := ProjectSettings.globalize_path(INSTALL_ROOT.path_join(version).path_join(executable))
 		if OS.create_process(path, OS.get_cmdline_user_args()) != -1:
+			if OS.get_name() == "Linux" and OS.has_feature("template"):
+				var error := _install_linux_menu_entry()
+				if error != OK:
+					push_warning("Could not install the Linux application menu entry: " + error_string(error))
 			get_tree().quit()
 			return
 	$Status.text = tr("UPDATER_LAUNCH_FAILED")
 	$Retry.show()
+
+
+func _install_linux_menu_entry() -> Error:
+	var data_home := OS.get_environment("XDG_DATA_HOME")
+	if not data_home.is_absolute_path():
+		data_home = OS.get_environment("HOME").path_join(".local/share")
+	if not data_home.is_absolute_path():
+		return ERR_UNCONFIGURED
+
+	var applications := data_home.path_join("applications")
+	var error := DirAccess.make_dir_recursive_absolute(applications)
+	if error != OK:
+		return error
+
+	var launcher := ProjectSettings.globalize_path("user://le-dernier-train-launcher")
+	var running := OS.get_executable_path()
+	var temporary_suffix := ".tmp-" + str(OS.get_process_id())
+	if running != launcher:
+		var temporary_launcher := launcher + temporary_suffix
+		error = DirAccess.copy_absolute(running, temporary_launcher)
+		if error == OK:
+			error = FileAccess.set_unix_permissions(temporary_launcher, 493)
+		if error == OK:
+			error = DirAccess.rename_absolute(temporary_launcher, launcher)
+		if error != OK:
+			DirAccess.remove_absolute(temporary_launcher)
+			return error
+
+	# Exec applies desktop string escaping before parsing the quoted command.
+	var command := launcher.replace("\\", "\\\\").replace("\"", "\\\"")
+	command = command.replace("$", "\\$").replace("`", "\\`").replace("%", "%%")
+	command = command.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+	var entry := """[Desktop Entry]
+Type=Application
+Name=Le Dernier Train
+Exec="%s"
+Icon=applications-games
+Categories=Game;
+Terminal=false
+""" % command
+	var desktop_file := applications.path_join("io.github.NicolasFerec.LeDernierTrain.desktop")
+	if FileAccess.get_file_as_string(desktop_file) == entry:
+		return OK
+	var temporary_entry := desktop_file + temporary_suffix
+	var file := FileAccess.open(temporary_entry, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	var written := file.store_string(entry)
+	file.close()
+	error = DirAccess.rename_absolute(temporary_entry, desktop_file) if written else ERR_FILE_CANT_WRITE
+	if error != OK:
+		DirAccess.remove_absolute(temporary_entry)
+	return error
