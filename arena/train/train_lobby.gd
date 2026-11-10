@@ -23,11 +23,22 @@ const INK := Color("#1d2228")
 const BRASS := Color("#d1a065")
 
 var _interactable_station := -1
-var impacts := PackedFloat32Array([0, 0, 0])
+var impacts := PackedFloat32Array()
+var _dummy_visuals: Array[Node2D] = []
 
 
 func _ready() -> void:
 	ControlHints.changed.connect(queue_redraw)
+	impacts.resize(DUMMIES.size())
+	for index in DUMMIES.size():
+		# The base is painted on the floor. The upright target sorts with actors.
+		var dummy := Node2D.new()
+		dummy.name = "PracticeTarget%d" % index
+		dummy.position = Isometric.GROUND * DUMMIES[index]
+		dummy.z_index = Isometric.depth(dummy.position.y)
+		dummy.draw.connect(_draw_dummy.bind(dummy, index))
+		add_child(dummy)
+		_dummy_visuals.append(dummy)
 
 
 func show_interaction(station: int) -> void:
@@ -39,14 +50,14 @@ func show_interaction(station: int) -> void:
 func flash(index: int) -> void:
 	if index >= 0 and index < DUMMIES.size():
 		impacts[index] = 0.24
-		queue_redraw()
+		_dummy_visuals[index].queue_redraw()
 
 
 func _process(delta: float) -> void:
 	for index in impacts.size():
 		if impacts[index] > 0:
 			impacts[index] = maxf(0, impacts[index] - delta)
-			queue_redraw()
+			_dummy_visuals[index].queue_redraw()
 
 
 func _notification(what: int) -> void:
@@ -107,11 +118,11 @@ func _draw() -> void:
 		_draw_bench(Vector2(x, 34))
 	for index in STATIONS.size():
 		_draw_station(index)
-	for index in DUMMIES.size():
-		_draw_dummy(index)
 	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
-	var practice_controls := "TRAIN_PRACTICE_GAMEPAD" if ControlHints.using_gamepad else "TRAIN_PRACTICE_KEYBOARD"
-	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -5), tr(practice_controls), Color("#f4e0be"), 11)
+	var practice_buttons := []
+	for action in ["attack", "heavy_attack", "dodge"]:
+		practice_buttons.append(ControlHints.binding_label(action, ControlHints.using_gamepad, true))
+	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
 
 
 func _draw_surface(area: Rect2, texture: Texture2D, tile_size: int, tint: Color) -> void:
@@ -205,33 +216,29 @@ func _draw_station(index: int) -> void:
 		var font := ThemeDB.fallback_font
 		var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		var badge := title_anchor + Vector2(-title_width / 2 - 20, -4)
-		var key := "A" if ControlHints.using_gamepad else "E"
-		if ControlHints.using_gamepad:
-			draw_circle(badge, 11, INK, true, -1, true)
-			draw_circle(badge, 9, Color("#a2d68f"), true, -1, true)
-		else:
-			draw_rect(Rect2(badge - Vector2(10, 10), Vector2(20, 20)), INK)
-			draw_rect(Rect2(badge - Vector2(8, 8), Vector2(16, 16)), Color("#f4e0be"))
+		var key := ControlHints.binding_label("interact", ControlHints.using_gamepad, true)
 		var key_width := font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var badge_width := maxf(20.0, key_width + 10.0)
+		badge.x -= (badge_width - 20.0) * 0.5
+		var outline := Rect2(badge - Vector2(badge_width * 0.5, 10), Vector2(badge_width, 20))
+		draw_rect(outline, INK)
+		draw_rect(outline.grow(-2), Color("#a2d68f") if ControlHints.using_gamepad else Color("#f4e0be"))
 		draw_string(font, badge + Vector2(-key_width / 2, 4), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
-func _draw_dummy(index: int) -> void:
-	var point: Vector2 = Isometric.GROUND * DUMMIES[index]
+func _draw_dummy(dummy: Node2D, index: int) -> void:
 	var impact := impacts[index] / 0.24
-	draw_set_transform(point)
-	draw_line(Vector2.ZERO, Vector2(0, -18), INK, 7, true)
-	draw_line(Vector2(-11, -25), Vector2(11, -25), BRASS.darkened(0.35), 5, true)
+	dummy.draw_line(Vector2.ZERO, Vector2(0, -18), INK, 7, true)
+	dummy.draw_line(Vector2(-11, -25), Vector2(11, -25), BRASS.darkened(0.35), 5, true)
 	var center := Vector2(impact * 6, -29)
-	draw_circle(center, 13, INK)
-	draw_circle(center, 10, BRASS.lerp(Color("#fff7bb"), impact))
-	draw_arc(center, 6, 0, TAU, 24, Color("#944947"), 3, true)
-	draw_circle(center, 2, INK)
+	dummy.draw_circle(center, 13, INK)
+	dummy.draw_circle(center, 10, BRASS.lerp(Color("#fff7bb"), impact))
+	dummy.draw_arc(center, 6, 0, TAU, 24, Color("#944947"), 3, true)
+	dummy.draw_circle(center, 2, INK)
 	if impact > 0:
 		for angle in range(0, 360, 90):
 			var ray := Vector2.from_angle(deg_to_rad(angle + 30))
-			draw_line(center + ray * 15, center + ray * (19 + 10 * (1 - impact)), Color("#ffdf86", impact), 2, true)
-	draw_set_transform(Vector2.ZERO)
+			dummy.draw_line(center + ray * 15, center + ray * (19 + 10 * (1 - impact)), Color("#ffdf86", impact), 2, true)
 
 
 func _label(point: Vector2, label: String, color: Color, size := 13) -> void:

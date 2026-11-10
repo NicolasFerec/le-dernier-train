@@ -20,7 +20,7 @@ func _process(delta: float) -> void:
 		breathing = fmod(breathing + delta * 3.0, TAU)
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
-	z_index = 3 + maxi(0, roundi(projected.y))
+	z_index = Isometric.depth(projected.y)
 	queue_redraw()
 
 

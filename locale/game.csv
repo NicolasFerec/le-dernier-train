@@ -1,7 +1,6 @@
 keys,fr,en
 JOIN,Rejoindre,Join
 LEAVE,Quitter la session,Leave session
-COMBAT_HELP_KEYBOARD,ZQSD / flèches   ·   J Attaque   ·   Espace Esquive,WASD / arrows   ·   J Attack   ·   Space Dodge
 LOBBY,Salon,Lobby
 START,Lancer la partie,Start run
 WAIT_HOST,En attente du lancement par l’hôte.,Waiting for the host to start.
@@ -114,9 +113,6 @@ SESSION_PLAYER_FALLBACK,Joueur %d,Player %d
 SESSION_PING,%d ms,%d ms
 VERSION_INCOMPATIBLE,Ce salon utilise une version incompatible. Vérifie que vous avez la même mise à jour.,This lobby uses an incompatible build. Make sure you both have the same update.
 TRAIN_PRACTICE,Stand d’entraînement,Practice range
-TRAIN_PRACTICE_KEYBOARD,J Attaquer · Espace Esquiver,J Attack · Space Dodge
-COMBAT_HELP_GAMEPAD,Stick gauche / croix   ·   X Attaque   ·   B Esquive,Left stick / D-pad   ·   X Attack   ·   B Dodge
-TRAIN_PRACTICE_GAMEPAD,X Attaquer · B Esquiver,X Attack · B Dodge
 ROOM_ENTRANCE,Entrée,Entrance
 ROOM_GATE_LOCKED,Sortie verrouillée,Exit locked
 ROOM_GATE_OPEN,Sortie ouverte,Exit open
@@ -133,3 +129,32 @@ SETTINGS_UPDATE_LATEST,Stable,Stable
 SETTINGS_UPDATE_DEV,Dev,Dev
 SETTINGS_UPDATE_HINT,Le choix s’applique au prochain démarrage via le lanceur.,Your choice applies the next time you start from the launcher.
 UPDATER_DEV_FALLBACK,Version Dev indisponible. Recherche de la version stable…,Dev build unavailable. Checking for the stable version…
+RUN_SUMMARY_TITLE,Bilan de la partie,Run summary
+RUN_SUMMARY_VICTORY,Mission réussie,Mission complete
+RUN_SUMMARY_ROOMS,Salles terminées : %d / %d,Rooms cleared: %d / %d
+RUN_SUMMARY_KILLS,Ennemis éliminés,Enemies defeated
+RUN_SUMMARY_DEALT,Dégâts infligés,Damage dealt
+RUN_SUMMARY_TAKEN,Dégâts reçus,Damage taken
+RUN_SUMMARY_WAIT,L’hôte ramènera le groupe au salon.,The host will take the party back to the lobby.
+TRAIN_PRACTICE_CONTROLS,%s Légère · %s Lourde · %s Esquive,%s Light · %s Heavy · %s Dodge
+CONTROLS_TAB,Commandes,Controls
+CONTROLS_ACTION,Action,Action
+CONTROLS_KEYBOARD,Clavier,Keyboard
+CONTROLS_GAMEPAD,Manette,Controller
+CONTROLS_UP,Monter,Move up
+CONTROLS_DOWN,Descendre,Move down
+CONTROLS_LEFT,Aller à gauche,Move left
+CONTROLS_RIGHT,Aller à droite,Move right
+CONTROLS_LIGHT,Attaque légère,Light attack
+CONTROLS_HEAVY,Attaque lourde,Heavy attack
+CONTROLS_INTERACT,Interagir,Interact
+CONTROLS_PAUSE,Pause,Pause
+CONTROLS_VIBRATION,Vibrations de la manette,Controller vibration
+CONTROLS_RESET,Rétablir les touches,Reset bindings
+CONTROLS_HINT,Choisis une touche à modifier. Le stick gauche reste actif.,Select a binding to change. The left stick remains active.
+CONTROLS_CAPTURE_KEY,Appuie sur la nouvelle touche. Échap pour annuler.,Press the new key. Esc to cancel.
+CONTROLS_CAPTURE_PAD,Appuie sur le nouveau bouton. Échap ou View pour annuler.,Press the new button. Esc or View to cancel.
+CONTROLS_CONFLICT,Commande déjà utilisée pour « %s ». Essaie une autre touche.,Already bound to “%s”. Try another input.
+CONTROLS_BUTTON_NUMBER,Bouton %d,Button %d
+CONTROLS_ESCAPE,Échap,Esc
+CONTROLS_SPACE,Espace,Space

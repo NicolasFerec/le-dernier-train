@@ -1,9 +1,9 @@
 extends Node2D
 
-const DEPOT := preload("res://assets/menu/depot.png")
+const DEPOT := preload("res://assets/menu/depot-panorama.webp")
 # Coordinates in the painted depot, so the effects stay attached when it is cropped.
-const LANTERNS := [Vector2(0.102, 0.543), Vector2(0.95, 0.527)]
-const REFLECTIONS := [Vector2(0.108, 0.738), Vector2(0.915, 0.84)]
+const LANTERNS := [Vector2(0.271, 0.480), Vector2(0.767, 0.463)]
+const REFLECTIONS := [Vector2(0.285, 0.716), Vector2(0.700, 0.862)]
 
 var time := 0.0
 var haze: GradientTexture2D
@@ -38,14 +38,15 @@ func _draw() -> void:
 	var depot := Rect2(-excess * Vector2(0.5, 0.8), backdrop_size)
 	draw_texture_rect(DEPOT, depot, false)
 
+	var light_scale := Vector2(depot.size.y * 16.0 / 9.0, depot.size.y)
 	for index in LANTERNS.size():
 		var pulse := time + index * 2.3
 		var brightness := 0.18 + sin(pulse * 1.7) * 0.045 + sin(pulse * 5.8) * 0.022
 		var lamp: Vector2 = depot.position + depot.size * LANTERNS[index]
 		var reflection: Vector2 = depot.position + depot.size * REFLECTIONS[index]
-		_draw_haze(lamp, depot.size * Vector2(0.14, 0.26), Color(1.0, 0.57, 0.22, brightness))
-		_draw_haze(lamp, depot.size * Vector2(0.035, 0.062), Color(1.0, 0.80, 0.42, brightness * 0.9))
-		_draw_haze(reflection, depot.size * Vector2(0.18, 0.07), Color(1.0, 0.55, 0.24, brightness * 0.55))
+		_draw_haze(lamp, light_scale * Vector2(0.14, 0.26), Color(1.0, 0.57, 0.22, brightness))
+		_draw_haze(lamp, light_scale * Vector2(0.035, 0.062), Color(1.0, 0.80, 0.42, brightness * 0.9))
+		_draw_haze(reflection, light_scale * Vector2(0.18, 0.07), Color(1.0, 0.55, 0.24, brightness * 0.55))
 
 	# Darken the area behind the central menu without dimming the edges.
 	var design_scale := minf(view.x / GameSettings.DESIGN_SIZE.x, view.y / GameSettings.DESIGN_SIZE.y)

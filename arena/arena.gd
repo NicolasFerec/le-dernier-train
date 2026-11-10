@@ -13,6 +13,9 @@ var players := {}
 var enemies: Array[Node2D] = []
 var room := 0
 var room_token := 0
+var run_finished := false
+var rooms_cleared := 0
+var run_stats := {}
 var departure_time := 0.0
 var game_paused := false
 var state_time := 0.0
@@ -42,6 +45,7 @@ func _ready() -> void:
 	ui.close_station_requested.connect(_close_station)
 	ui.start_requested.connect(_start_run)
 	ui.advance_requested.connect(_advance)
+	ui.run_summary.return_requested.connect(_return_from_summary)
 	Profile.changed.connect(_send_loadout)
 	Session.ended.connect(_reset)
 	Session.notice.connect(func(message: String):
@@ -102,7 +106,7 @@ func _prepare_network_motion() -> void:
 		var lane := _player_motion[player.slot]
 		active_slots[player.slot] = true
 		lane.bind(id, _motion_epoch, player, _movement_bounds())
-		lane.paused = game_paused
+		lane.paused = game_paused or run_finished
 		lane.body.hp = player.hp
 		lane.body.speed = player.speed
 		if id == local_id:
@@ -123,7 +127,7 @@ func _finish_network_motion() -> void:
 		if not lane.has_pose():
 			continue
 		lane.record_pose()
-		if authority and not game_paused:
+		if authority and not game_paused and not run_finished:
 			player.position = lane.body.position
 			player.facing = lane.body.facing
 			player.movement = lane.body.movement
@@ -148,19 +152,19 @@ func _process(_delta: float) -> void:
 		player.render_movement = player.movement
 		player.render_facing = player.facing
 		player.render_dash_time = player.dash_time
-		if not game_paused and online and lane.has_pose() and lane.stamp == Vector2i(id, _motion_epoch):
+		if not game_paused and not run_finished and online and lane.has_pose() and lane.stamp == Vector2i(id, _motion_epoch):
 			player.render_position = lane.render_position
 			player.render_movement = lane.body.movement
 			player.render_facing = lane.body.facing
 			player.render_dash_time = lane.body.dash_time
-		elif not game_paused and not online:
+		elif not game_paused and not run_finished and not online:
 			player.render_position = player.previous_position.lerp(player.position, fraction)
 	for index in enemies.size():
 		var enemy := enemies[index]
 		var lane := _enemy_motion[index]
-		if not game_paused and online and not authority and lane.has_pose(_motion_epoch):
+		if not game_paused and not run_finished and online and not authority and lane.has_pose(_motion_epoch):
 			enemy.render_position = lane.render_position
-		elif not game_paused and authority:
+		elif not game_paused and not run_finished and authority:
 			enemy.render_position = enemy.previous_position.lerp(enemy.position, fraction)
 		else:
 			enemy.render_position = enemy.position
@@ -294,6 +298,12 @@ func _party_at_departure() -> bool:
 
 func _begin_run() -> void:
 	loadouts[1] = Profile.loadout()
+	rooms_cleared = 0
+	run_stats.clear()
+	for id in slots:
+		var slot: int = slots[id]
+		var name_text := Session.player_name(id, slot + 1) if Session.steam_lobby != 0 else ""
+		run_stats[id] = {"slot": slot, "name": name_text, "kills": 0, "dealt": 0, "taken": 0}
 	_enter_room(1)
 
 
@@ -308,10 +318,7 @@ func _enter_room(number: int) -> void:
 
 
 func _advance() -> void:
-	if not multiplayer.is_server() or room == 0 or departure_time > 0 or game_paused:
-		return
-	if not _party_alive():
-		_finish_room(false)
+	if not multiplayer.is_server() or room == 0 or departure_time > 0 or game_paused or run_finished:
 		return
 	if _remaining() > 0 or not _host_can_depart():
 		return
@@ -330,8 +337,25 @@ func _finish_room(alive: bool) -> void:
 		_grant_reward(REWARD)
 		if Session.is_online() and not multiplayer.get_peers().is_empty():
 			_grant_reward.rpc(REWARD)
+	if Session.is_online() and not multiplayer.get_peers().is_empty():
+		_finish_run.rpc(room_token, alive, rooms_cleared, run_stats)
 	else:
-		lobby_notice = tr("PARTY_DOWN_NOTICE")
+		_finish_run(room_token, alive, rooms_cleared, run_stats)
+
+
+@rpc("authority", "call_local", "reliable")
+func _finish_run(token: int, victory: bool, cleared: int, stats: Dictionary) -> void:
+	if not connected or token < room_token or run_finished:
+		return
+	run_finished = true
+	departure_time = 0.0
+	ui.show_departure(0)
+	ui.show_run_summary(victory, cleared, MissionRoom.LAYOUTS.size(), stats, multiplayer.is_server())
+
+
+func _return_from_summary() -> void:
+	if not multiplayer.is_server() or not run_finished:
+		return
 	room_token += 1
 	_change_room(0)
 	for id in slots:
@@ -343,6 +367,9 @@ func _finish_room(alive: bool) -> void:
 func _change_room(number: int) -> void:
 	_clear_room()
 	room = number
+	if number == 0:
+		run_finished = false
+		ui.run_summary.hide()
 	_motion_epoch += 1
 	mission.configure(number)
 
@@ -385,16 +412,29 @@ func _add_enemy(spawn: Vector2) -> void:
 	enemy.previous_position = spawn
 	enemy.render_position = spawn
 	enemy.paused = game_paused
-	enemy.struck.connect(func(): _emit_world_sound(GameAudio.Cue.ENEMY_STRIKE, enemy.position))
+	enemy.struck.connect(func(target_id: int):
+		run_stats[target_id].taken += 1
+		if target_id == multiplayer.get_unique_id():
+			ControlHints.vibrate_on_hit()
+		elif Session.is_online():
+			_receive_hit_feedback.rpc_id(target_id, room_token)
+		_emit_world_sound(GameAudio.Cue.ENEMY_STRIKE, enemy.position)
+	)
 	add_child(enemy)
 	enemies.append(enemy)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _receive_hit_feedback(token: int) -> void:
+	if connected and token >= room_token:
+		ControlHints.vibrate_on_hit()
 
 
 func _physics_process(delta: float) -> void:
 	if not connected or not multiplayer.is_server():
 		return
 	var online := Session.is_online()
-	if not game_paused:
+	if not game_paused and not run_finished:
 		if online:
 			for player in players.values():
 				player.step_attack(delta)
@@ -403,7 +443,9 @@ func _physics_process(delta: float) -> void:
 			players[1].step(delta, _movement_bounds())
 		for enemy in enemies:
 			enemy.step(delta, players)
-		if departure_time > 0:
+		if room > 0 and _living_players() == 0:
+			_finish_room(false)
+		elif departure_time > 0:
 			departure_time = maxf(0.0, departure_time - delta)
 			if room == 0:
 				if departure_time <= 0 or _party_at_departure():
@@ -419,7 +461,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _read_movement() -> Vector2:
-	if game_paused or open_station >= 0:
+	if game_paused or run_finished or open_station >= 0:
 		return Vector2.ZERO
 	var movement := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	return Isometric.GROUND.affine_inverse().basis_xform(movement).normalized() * movement.length()
@@ -469,7 +511,7 @@ func _close_station() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_pressed() or event.is_echo():
+	if run_finished or not event.is_pressed() or event.is_echo():
 		return
 	if open_station >= 0 and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("session_menu")):
 		if event.is_action_pressed("session_menu") and Session.is_online() and not multiplayer.is_server():
@@ -503,7 +545,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	var dodge := event.is_action_pressed("dodge")
-	if not dodge and not event.is_action_pressed("attack"):
+	var heavy := event.is_action_pressed("heavy_attack")
+	if not dodge and not heavy and not event.is_action_pressed("attack"):
 		return
 	if dodge and Session.is_online():
 		var local: Node2D = players.get(multiplayer.get_unique_id())
@@ -512,35 +555,35 @@ func _unhandled_input(event: InputEvent) -> void:
 			lane.bind(multiplayer.get_unique_id(), _motion_epoch, local, _movement_bounds())
 			lane.request_dodge()
 	elif multiplayer.is_server():
-		_act(1, dodge)
+		_act(1, dodge, heavy)
 	else:
-		_submit_attack.rpc_id(1, room_token)
+		_submit_attack.rpc_id(1, room_token, heavy)
 	get_viewport().set_input_as_handled()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _submit_attack(token: int) -> void:
+func _submit_attack(token: int, heavy: bool) -> void:
 	if multiplayer.is_server() and token == room_token:
-		_act(multiplayer.get_remote_sender_id(), false)
+		_act(multiplayer.get_remote_sender_id(), false, heavy)
 
 
-func _act(id: int, dodge: bool) -> void:
+func _act(id: int, dodge: bool, heavy := false) -> void:
 	var player: Node2D = players.get(id)
-	if game_paused or player == null or player.hp <= 0:
+	if game_paused or run_finished or player == null or player.hp <= 0:
 		return
 	if dodge:
 		if player.dodge():
 			_emit_world_sound(GameAudio.Cue.DASH, player.position)
 	elif player.attack_time <= 0:
-		player.start_attack()
+		player.start_attack(heavy)
 		var cue := GameAudio.Cue.BLADE
 		if player.weapon == 1:
 			cue = GameAudio.Cue.HAMMER if player.character == 0 else GameAudio.Cue.DAGGERS
 		_emit_world_sound(cue, player.position)
-		_resolve_attack(player)
+		_resolve_attack(id, player, heavy)
 
 
-func _resolve_attack(player: Node2D) -> void:
+func _resolve_attack(id: int, player: Node2D, heavy: bool) -> void:
 	if room == 0:
 		for index in TrainLobby.DUMMIES.size():
 			if player.can_hit(TrainLobby.DUMMIES[index], 12.0):
@@ -548,12 +591,18 @@ func _resolve_attack(player: Node2D) -> void:
 				if Session.is_online() and not multiplayer.get_peers().is_empty():
 					_practice_hit.rpc(room_token, index)
 		return
+	var hit_damage: int = player.damage * (2 if heavy else 1)
 	for enemy in enemies:
 		if enemy.hp > 0 and player.can_hit(enemy.position):
-			enemy.hp = maxi(0, enemy.hp - player.damage)
+			var damage := mini(enemy.hp, hit_damage)
+			enemy.hp -= damage
+			run_stats[id].dealt += damage
 			_emit_world_sound(GameAudio.Cue.ENEMY_HIT, enemy.position)
 			if enemy.hp == 0:
+				run_stats[id].kills += 1
 				_emit_world_sound(GameAudio.Cue.ENEMY_FALL, enemy.position)
+	if _remaining() == 0:
+		rooms_cleared = room
 
 
 @rpc("authority", "call_remote", "unreliable")
@@ -643,10 +692,6 @@ func _remaining() -> int:
 	return remaining
 
 
-func _party_alive() -> bool:
-	return _living_players() > 0
-
-
 func _living_players() -> int:
 	var living := 0
 	for player in players.values():
@@ -672,6 +717,8 @@ func _host_can_depart() -> bool:
 
 
 func _show_state() -> void:
+	if run_finished:
+		return
 	var authority := multiplayer.is_server()
 	ui.session_menu.refresh_session(room, connecting, lobby_notice)
 	if room == 0:
@@ -692,10 +739,7 @@ func _show_state() -> void:
 	var button := ""
 	var gate_prompt := ""
 	var unlocked := remaining == 0 and living > 0
-	if living == 0:
-		outcome = tr("PARTY_DOWN")
-		button = tr("RETURN_LOBBY")
-	elif unlocked:
+	if unlocked:
 		outcome = tr("ROOM_GATE_FIND")
 		var present := _players_at_exit()
 		if living > 1:
