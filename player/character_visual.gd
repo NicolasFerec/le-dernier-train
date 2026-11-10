@@ -73,10 +73,10 @@ func _draw() -> void:
 		return
 	var direction := (Isometric.GROUND * Vector2(actor.render_facing)).angle()
 	var facing := Vector2.from_angle(snappedf(direction, PI / 4))
-	var attack := clampf((actor.attack_time - actor.attack_delay + actor.SWING_TIME) / actor.SWING_TIME, 0.0, 1.0)
+	var attack := 1.0 - float(actor.swing_progress())
 	var attack_angle: float = actor.attack_direction.angle()
 	var half_angle := acos(actor.SWING_MIN_DOT)
-	var swing_edge := attack_angle + lerpf(half_angle, -half_angle, attack)
+	var swing_edge := attack_angle + float(actor.swing_offset(1.0 - attack))
 	var weapon_facing := (Isometric.GROUND * Vector2(actor.attack_direction)).normalized() if attack > 0 else facing
 	var dashing: bool = actor.render_dash_time > 0
 	var scout: bool = actor.character == 1
@@ -105,7 +105,7 @@ func _draw() -> void:
 			var start := Vector2(0, -8 - offset) - facing * 12
 			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
-		_draw_swing(attack, team, attack_angle - half_angle, swing_edge)
+		_draw_swing(attack, team, attack_angle + half_angle, swing_edge)
 
 	if sprite.visible:
 		return
@@ -181,6 +181,6 @@ func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -
 	var points := PackedVector2Array()
 	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
 	for index in range(16):
-		var ray := Vector2.from_angle(lerpf(maxf(start_angle, edge - 1.6), edge, index / 15.0))
+		var ray := Vector2.from_angle(lerpf(minf(start_angle, edge + 1.6), edge, index / 15.0))
 		points.append(origin + Isometric.GROUND * (ray * actor.reach))
 	draw_polyline(points, Color(color, 0.55 * sin(PI * attack)), 4, true)

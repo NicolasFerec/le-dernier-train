@@ -15,6 +15,8 @@ var reach := 78.0
 var damage := 1
 var attack_delay := 0.36
 var attack_time := 0.0
+var heavy_attack := false
+var attack_hits := {}
 var attack_origin := Vector2.ZERO
 var attack_direction := Vector2.RIGHT
 var previous_position := Vector2.ZERO
@@ -44,14 +46,33 @@ func equip(kit: Array) -> void:
 func start_attack(heavy: bool) -> void:
 	var light_delay := 0.36 if weapon == 0 else (0.58 if character == 0 else 0.23)
 	attack_delay = light_delay * (2.0 if heavy else 1.0)
+	heavy_attack = heavy
+	attack_hits.clear()
 	attack_origin = position
 	attack_direction = facing
 	attack_time = attack_delay
 
 
-func can_hit(point: Vector2, padding := 0.0) -> bool:
+func swing_progress() -> float:
+	return clampf((attack_delay - attack_time) / SWING_TIME, 0.0, 1.0)
+
+
+func swing_offset(progress: float) -> float:
+	var half_angle := acos(SWING_MIN_DOT)
+	return lerpf(half_angle, -half_angle, progress)
+
+
+func swept_hit(target: Variant, point: Vector2, previous: float, padding := 0.0) -> bool:
+	if attack_hits.has(target):
+		return false
 	var offset := point - attack_origin
-	return offset.length() <= reach + padding and attack_direction.dot(offset.normalized()) >= SWING_MIN_DOT
+	if offset.length_squared() > (reach + padding) ** 2:
+		return false
+	var angle := attack_direction.angle_to(offset)
+	if angle > swing_offset(previous) or angle < swing_offset(swing_progress()):
+		return false
+	attack_hits[target] = true
+	return true
 
 
 func step(delta: float, bounds: Rect2) -> void:

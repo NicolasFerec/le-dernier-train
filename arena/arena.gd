@@ -435,12 +435,17 @@ func _physics_process(delta: float) -> void:
 		return
 	var online := Session.is_online()
 	if not game_paused and not run_finished:
-		if online:
-			for player in players.values():
-				player.step_attack(delta)
-		else:
+		if not online:
 			players[1].movement = _read_movement()
-			players[1].step(delta, _movement_bounds())
+		for id in players:
+			var player: Node2D = players[id]
+			var previous: float = player.swing_progress()
+			if online:
+				player.step_attack(delta)
+			else:
+				player.step(delta, _movement_bounds())
+			if previous < 1.0 and player.hp > 0:
+				_resolve_attack(id, player, previous)
 		for enemy in enemies:
 			enemy.step(delta, players)
 		if room > 0 and _living_players() == 0:
@@ -580,20 +585,19 @@ func _act(id: int, dodge: bool, heavy := false) -> void:
 		if player.weapon == 1:
 			cue = GameAudio.Cue.HAMMER if player.character == 0 else GameAudio.Cue.DAGGERS
 		_emit_world_sound(cue, player.position)
-		_resolve_attack(id, player, heavy)
 
 
-func _resolve_attack(id: int, player: Node2D, heavy: bool) -> void:
+func _resolve_attack(id: int, player: Node2D, previous: float) -> void:
 	if room == 0:
 		for index in TrainLobby.DUMMIES.size():
-			if player.can_hit(TrainLobby.DUMMIES[index], 12.0):
+			if player.swept_hit(index, TrainLobby.DUMMIES[index], previous, 12.0):
 				_practice_hit(room_token, index)
 				if Session.is_online() and not multiplayer.get_peers().is_empty():
 					_practice_hit.rpc(room_token, index)
 		return
-	var hit_damage: int = player.damage * (2 if heavy else 1)
+	var hit_damage: int = player.damage * (2 if player.heavy_attack else 1)
 	for enemy in enemies:
-		if enemy.hp > 0 and player.can_hit(enemy.position):
+		if enemy.hp > 0 and player.swept_hit(enemy, enemy.position, previous):
 			var damage := mini(enemy.hp, hit_damage)
 			enemy.hp -= damage
 			run_stats[id].dealt += damage
