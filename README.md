@@ -30,10 +30,10 @@ Installe [GodotSteam 4.24 GDExtension](https://codeberg.org/godotsteam/godotstea
 Pour tester, ouvre le client Steam et connecte-toi sur deux machines avec deux comptes amis. Lance la même version du jeu sur chacune :
 
 ```sh
-ROGUELITE_STEAM_APP_ID=480 godot --path .
+godot --path .
 ```
 
-L’App ID **480** correspond à Spacewar, l’application de test publique de Steam. Pour une version distribuée, utilise l’App ID Steamworks du jeu.
+L’App ID **480** correspond à Spacewar, l’application de test publique de Steam. Il est configuré dans la section `[steam]` de `project.godot`. Remplace-le par l’App ID Steamworks du jeu quand il sera disponible.
 
 1. L’hôte clique sur **Héberger Steam**.
 2. **Inviter / copier le code** ouvre le sélecteur d’amis si l’overlay Steam est disponible et copie le code du salon. Accepte l’invitation avec le jeu ouvert. Si l’overlay est indisponible, transmets le code à ton ami pour qu’il le colle dans le champ d’adresse et clique sur **Rejoindre Steam**.
@@ -51,4 +51,4 @@ Pour publier une version stable, mets à jour `application/config/version` dans 
 
 Télécharge le lanceur de ta plateforme depuis les releases. Sous Linux, rends le fichier exécutable avec `chmod +x`. Au premier démarrage, il télécharge le jeu. Aux suivants, il affiche l’avancement de la mise à jour, puis lance automatiquement le jeu. Si GitHub est indisponible, il affiche brièvement un message et démarre la version installée. Les versions du jeu et les sauvegardes sont stockées séparément.
 
-Pour les essais Steam sous Linux, ouvre Steam et lance le lanceur avec `ROGUELITE_STEAM_APP_ID=480`. Sous Windows, définis cette variable dans PowerShell avec `$env:ROGUELITE_STEAM_APP_ID = "480"` avant de lancer le fichier depuis la même fenêtre.
+Pour tester la coop Steam depuis le lanceur Windows ou Linux, ouvre Steam et connecte-toi avant de lancer le jeu.

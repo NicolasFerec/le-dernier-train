@@ -103,9 +103,7 @@ func _busy() -> bool:
 
 
 func _initialize_steam() -> void:
-	var app_id := OS.get_environment("ROGUELITE_STEAM_APP_ID").to_int()
-	if app_id <= 0:
-		app_id = OS.get_environment("SteamAppId").to_int()
+	var app_id := int(ProjectSettings.get_setting("steam/app_id", 0))
 	if app_id <= 0:
 		return
 	if not Engine.has_singleton("Steam") or not ClassDB.class_exists("SteamMultiplayerPeer"):
