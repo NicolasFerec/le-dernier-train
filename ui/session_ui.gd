@@ -4,6 +4,7 @@ signal close_station_requested
 signal start_requested
 signal advance_requested
 
+@onready var run_summary: CenterContainer = $RunSummary
 @onready var session_menu: CenterContainer = $SessionMenu
 @onready var invitation_menu: CenterContainer = $InvitationMenu
 @onready var station_menu: CenterContainer = $StationMenu
@@ -77,18 +78,14 @@ func _refresh_profile() -> void:
 func layout_hud(layout: Transform2D) -> void:
 	transform = layout
 	var full := layout.affine_inverse() * get_viewport().get_visible_rect()
-	for control in [$MenuBackdrop, station_menu, session_menu, invitation_menu]:
+	for control in [$MenuBackdrop, station_menu, session_menu, invitation_menu, run_summary]:
 		control.position = full.position
 		control.size = full.size
 	var safe := layout.affine_inverse() * GameSettings.hud_safe_rect()
 	var left := safe.position.x + 24
-	var right := safe.end.x - 24
 	$Status.offset_left = left
-	$Status.offset_right = right
+	$Status.offset_right = safe.end.x - 24
 	$HUD.position = Vector2(left, safe.end.y - 79)
-	$Help.offset_left = left + 284
-	$Help.offset_right = right
-	$Help.position.y = safe.end.y - 36
 
 
 func show_phase(room: int, authority: bool, connecting: bool, advance := "") -> void:
@@ -96,7 +93,6 @@ func show_phase(room: int, authority: bool, connecting: bool, advance := "") -> 
 		show_station(-1, authority)
 	$HUD.visible = room > 0
 	$Status.visible = room > 0
-	$Help.visible = room > 0 and not session_menu.visible
 	var advance_was_visible: bool = $Advance.visible
 	$Advance.visible = advance != "" and authority and not session_menu.visible
 	$Advance.text = advance
@@ -143,7 +139,7 @@ func show_station(station: int, authority: bool, notice := "") -> void:
 	else:
 		invitation_menu.hide()
 	station_menu.visible = station >= 0 and not session_menu.visible and not show_invitations
-	var menu_visible := station_menu.visible or session_menu.visible or invitation_menu.visible
+	var menu_visible := station_menu.visible or session_menu.visible or invitation_menu.visible or run_summary.visible
 	$MenuBackdrop.visible = menu_visible
 	if GameSettings.in_menu != menu_visible:
 		GameSettings.set_menu(menu_visible)
@@ -166,7 +162,6 @@ func show_station(station: int, authority: bool, notice := "") -> void:
 
 
 func _refresh_controls() -> void:
-	$Help.text = "COMBAT_HELP_GAMEPAD" if ControlHints.using_gamepad else "COMBAT_HELP_KEYBOARD"
 	if ControlHints.using_gamepad and get_viewport().gui_get_focus_owner() == null:
 		if station_menu.visible:
 			_focus_station()
@@ -187,3 +182,9 @@ func show_party(player: Node2D, players: Dictionary) -> void:
 
 func show_status(message: String) -> void:
 	$Status.text = message
+
+
+func show_run_summary(victory: bool, cleared: int, total: int, stats: Dictionary, authority: bool) -> void:
+	run_summary.show_results(victory, cleared, total, stats, authority)
+	show_phase(0, authority, false)
+	show_station(-1, authority)

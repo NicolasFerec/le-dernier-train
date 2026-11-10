@@ -1,6 +1,6 @@
 extends Node2D
 
-signal struck
+signal struck(target_id: int)
 
 const AGGRO_RANGE := 360.0
 const INK := Color("#21262b")
@@ -25,11 +25,14 @@ func step(delta: float, players: Dictionary) -> void:
 	hit_cooldown = maxf(0, hit_cooldown - delta)
 	var target: Node2D
 	var nearest := INF
-	for player in players.values():
+	var target_id := 0
+	for id in players:
+		var player: Node2D = players[id]
 		var distance := position.distance_squared_to(player.position)
 		if player.hp > 0 and distance < nearest:
 			nearest = distance
 			target = player
+			target_id = id
 	if target == null or nearest > AGGRO_RANGE * AGGRO_RANGE:
 		return
 	facing = position.direction_to(target.position)
@@ -39,12 +42,12 @@ func step(delta: float, players: Dictionary) -> void:
 	elif hit_cooldown <= 0 and target.dash_time <= 0:
 		target.hp -= 1
 		hit_cooldown = 0.85
-		struck.emit()
+		struck.emit(target_id)
 
 
 func _process(delta: float) -> void:
 	var projected := Isometric.GROUND * render_position
-	z_index = 3 + maxi(0, roundi(projected.y))
+	z_index = Isometric.depth(projected.y)
 	if not paused:
 		_gait = fmod(_gait + delta * 12.0, TAU) if moving and hp > 0 else 0.0
 	queue_redraw()

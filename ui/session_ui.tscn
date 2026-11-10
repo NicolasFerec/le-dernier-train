@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://ui/session_ui.gd" id="1"]
 [ext_resource type="Script" path="res://ui/combat_hud.gd" id="2"]
@@ -6,6 +6,8 @@
 [ext_resource type="PackedScene" path="res://ui/session_menu.tscn" id="3"]
 
 [ext_resource type="PackedScene" path="res://ui/invitation_menu.tscn" id="4"]
+
+[ext_resource type="PackedScene" path="res://ui/run_summary.tscn" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="DeparturePanel"]
 bg_color = Color(0.10, 0.13, 0.16, 0.96)
@@ -24,15 +26,6 @@ offset_left = 24.0
 offset_top = 43.0
 offset_right = 776.0
 autowrap_mode = 2
-theme_override_constants/outline_size = 4
-theme_override_colors/font_outline_color = Color(0.07, 0.10, 0.13, 0.86)
-
-[node name="Help" type="Label" parent="."]
-visible = false
-offset_top = 484.0
-offset_right = 800.0
-text = "COMBAT_HELP_KEYBOARD"
-horizontal_alignment = 2
 theme_override_constants/outline_size = 4
 theme_override_colors/font_outline_color = Color(0.07, 0.10, 0.13, 0.86)
 
@@ -134,3 +127,5 @@ theme_override_colors/font_color = Color(0.97, 0.89, 0.76, 1)
 [node name="PauseNoticeTimer" type="Timer" parent="."]
 wait_time = 1.8
 one_shot = true
+
+[node name="RunSummary" parent="." instance=ExtResource("5")]

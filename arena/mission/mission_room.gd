@@ -124,7 +124,7 @@ func _draw() -> void:
 	if not _prompt.is_empty():
 		var message := tr(_prompt)
 		if _prompt != "ROOM_GATE_WAIT_HOST":
-			message = "%s  %s" % ["[A]" if ControlHints.using_gamepad else "[E]", message]
+			message = "[%s]  %s" % [ControlHints.binding_label("interact", ControlHints.using_gamepad, true), message]
 		_label(label_position + Vector2(0, -25), message, Color("#f6e8d1"))
 
 

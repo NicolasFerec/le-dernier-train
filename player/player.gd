@@ -38,11 +38,12 @@ func equip(kit: Array) -> void:
 	speed = (255.0 if character == 1 else 220.0) * (1.0 + 0.15 * kit[3])
 	damage = 2 if character == 0 and weapon == 1 else 1
 	reach = 78.0 if weapon == 0 else (62.0 if character == 0 else 56.0)
-	attack_delay = 0.36 if weapon == 0 else (0.58 if character == 0 else 0.23)
 	attack_time = 0.0
 
 
-func start_attack() -> void:
+func start_attack(heavy: bool) -> void:
+	var light_delay := 0.36 if weapon == 0 else (0.58 if character == 0 else 0.23)
+	attack_delay = light_delay * (2.0 if heavy else 1.0)
 	attack_origin = position
 	attack_direction = facing
 	attack_time = attack_delay

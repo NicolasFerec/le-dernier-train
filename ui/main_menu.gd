@@ -44,6 +44,7 @@ func _ready() -> void:
 	update_channel.item_selected.connect(func(index: int):
 		GameSettings.preferences.set_value("updates", "channel", "dev" if index == 1 else "latest")
 		status.text = "" if GameSettings.save() == OK else tr("SETTINGS_SAVE_FAILED")
+		status.visible = not status.text.is_empty()
 	)
 	var audio := $Center/Settings/Rows/Tabs/Audio/Grid
 	for bus in GameSettings.BUSES:
@@ -107,6 +108,8 @@ func _translate_settings() -> void:
 	tabs.set_tab_title(0, tr("SETTINGS_AUDIO"))
 	tabs.set_tab_title(1, tr("SETTINGS_GRAPHICS"))
 	tabs.set_tab_title(2, tr("SETTINGS_GENERAL"))
+	tabs.set_tab_title(3, tr("CONTROLS_TAB"))
+	$Center/Settings/Rows/Tabs/Controls/Content.refresh_bindings()
 	update_channel.clear()
 	update_channel.add_item(tr("SETTINGS_UPDATE_LATEST"))
 	update_channel.add_item(tr("SETTINGS_UPDATE_DEV"))
@@ -156,7 +159,7 @@ func _play() -> void:
 func _open_settings() -> void:
 	_refresh_screens()
 	_refresh_resolutions()
-	status.text = ""
+	status.hide()
 	home.hide()
 	settings.show()
 	tabs.get_tab_bar().grab_focus()
@@ -165,6 +168,7 @@ func _open_settings() -> void:
 func _close_settings() -> void:
 	if GameSettings.save() != OK:
 		status.text = tr("SETTINGS_SAVE_FAILED")
+		status.show()
 		return
 	settings.hide()
 	home.show()
