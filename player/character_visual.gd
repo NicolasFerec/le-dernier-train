@@ -177,15 +177,26 @@ func _draw_weapon(hand: Vector2, angle: float, scout: bool) -> void:
 
 
 func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -> void:
-	var points := PackedVector2Array()
 	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
-	if not actor.heavy_attack:
-		var inner: Vector2 = Vector2.from_angle(start_angle) * actor.reach * 0.30
-		var tip: Vector2 = Vector2.from_angle(edge) * actor.reach
-		draw_line(origin + Isometric.GROUND * inner, origin + Isometric.GROUND * tip,
-			Color(color, 0.8 * sin(PI * attack)), 2.0, true)
-		return
-	for index in range(16):
-		var ray := Vector2.from_angle(lerpf(minf(start_angle, edge + 1.6), edge, index / 15.0))
-		points.append(origin + Isometric.GROUND * (ray * actor.reach))
-	draw_polyline(points, Color(color, 0.55 * sin(PI * attack)), 4, true)
+	var reach: float = actor.swing_reach()
+	var trail_angle := move_toward(edge, start_angle, 1.25)
+	var opacity := sin(PI * attack)
+	var width := 15.0 if actor.heavy_attack else 9.0
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	var outer_colors := PackedColorArray()
+	var inner_colors := PackedColorArray()
+	for index in range(14):
+		var along := index / 13.0
+		var ray := Vector2.from_angle(lerpf(trail_angle, edge, along))
+		var taper := maxf(0.025, sin(PI * along))
+		outer.append(origin + Isometric.GROUND * (ray * reach))
+		inner.append(origin + Isometric.GROUND * (ray * (reach - width * taper)))
+		outer_colors.append(Color(color.lerp(Color.WHITE, 0.72), opacity * along))
+		inner_colors.append(Color(color, opacity * along * 0.12))
+	inner.reverse()
+	inner_colors.reverse()
+	outer.append_array(inner)
+	outer_colors.append_array(inner_colors)
+	if not is_equal_approx(trail_angle, edge):
+		draw_polygon(outer, outer_colors)
