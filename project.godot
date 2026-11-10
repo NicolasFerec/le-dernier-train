@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Arène coop"
+config/name="Le Dernier Train"
 config/version="0.1.6"
 run/main_scene="res://ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")

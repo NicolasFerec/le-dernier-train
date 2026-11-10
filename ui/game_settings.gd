@@ -32,7 +32,7 @@ var _counter: Label
 
 
 func _ready() -> void:
-	preferences.load(PATH)
+	preferences.load(PATH if FileAccess.file_exists(PATH) else "user://../Arène coop/preferences.cfg")
 	var language: String = preferences.get_value("interface", "language", "fr")
 	TranslationServer.set_locale("en" if language == "en" else "fr")
 	fullscreen = preferences.get_value("video", "fullscreen", false) == true

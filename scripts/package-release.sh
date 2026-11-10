@@ -35,7 +35,7 @@ for platform in windows linux; do
         extension=x86_64
         libraries=(libsteam_api.so libgodotsteam.linux.template_release.x86_64.so)
     fi
-    godot --headless --path . --export-release "$preset" "$directory/Arene-coop.$extension"
+    godot --headless --path . --export-release "$preset" "$directory/Le-Dernier-Train.$extension"
     for library in "${libraries[@]}"; do
         test -s "$directory/$library"
     done
@@ -48,8 +48,11 @@ for platform in windows linux; do
         printf '\n\nThird-party license: netfox and netfox.internals\n\n'
         cat addons/netfox/LICENSE
     } >> "$directory/GODOT-COPYRIGHT.txt"
+    (cd "$directory"; zip -q "$output/Le-Dernier-Train-$platform-x86_64.zip" ./*)
+    # Existing launchers hardcode the archive name and the executable inside it.
+    mv "$directory/Le-Dernier-Train.$extension" "$directory/Arene-coop.$extension"
     (cd "$directory"; zip -q "$output/Arene-coop-$platform-x86_64.zip" ./*)
-    godot --headless --path "$stage/launcher" --export-release "$preset" "$output/Arene-coop-Lanceur-$platform-x86_64.$extension"
+    godot --headless --path "$stage/launcher" --export-release "$preset" "$output/Le-Dernier-Train-Lanceur-$platform-x86_64.$extension"
 done
 
 python3 - "$version" "$output" <<'PY'
@@ -60,9 +63,12 @@ import sys
 
 version, directory = sys.argv[1:]
 output = pathlib.Path(directory)
-checksums = {}
-for platform in ("windows-x86_64", "linux-x86_64"):
-    with (output / f"Arene-coop-{platform}.zip").open("rb") as archive:
-        checksums[platform] = hashlib.file_digest(archive, "sha256").hexdigest()
-(output / "update.json").write_text(json.dumps({"version": version, "sha256": checksums}) + "\n")
+manifest = {"version": version}
+for key, prefix in (("packages_sha256", "Le-Dernier-Train"), ("sha256", "Arene-coop")):
+    checksums = {}
+    for platform in ("windows-x86_64", "linux-x86_64"):
+        with (output / f"{prefix}-{platform}.zip").open("rb") as archive:
+            checksums[platform] = hashlib.file_digest(archive, "sha256").hexdigest()
+    manifest[key] = checksums
+(output / "update.json").write_text(json.dumps(manifest) + "\n")
 PY

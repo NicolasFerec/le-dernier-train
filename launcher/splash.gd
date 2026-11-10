@@ -1,11 +1,15 @@
 extends Control
 
-const RELEASE_ROOT := "https://github.com/NicolasFerec/godot-roguelite/releases/latest/download/"
-const GAME_DATA := "user://../Arène coop"
+const RELEASE_ROOT := "https://github.com/NicolasFerec/le-dernier-train/releases/"
+const GAME_DATA := "user://../Le Dernier Train"
+const LEGACY_GAME_DATA := "user://../Arène coop"
+const LEGACY_INSTALL_ROOT := "user://../Arène coop Launcher/versions"
 const INSTALL_ROOT := "user://versions"
 
 var platform := "windows-x86_64" if OS.get_name() == "Windows" else "linux-x86_64"
-var executable := "Arene-coop.exe" if OS.get_name() == "Windows" else "Arene-coop.x86_64"
+var extension := ".exe" if OS.get_name() == "Windows" else ".x86_64"
+var executable := "Le-Dernier-Train" + extension
+var legacy_executable := "Arene-coop" + extension
 var version_pattern := RegEx.create_from_string("^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$")
 var request := HTTPRequest.new()
 var archive_path := ""
@@ -13,7 +17,10 @@ var archive_path := ""
 
 func _ready() -> void:
 	var preferences := ConfigFile.new()
-	preferences.load(GAME_DATA + "/preferences.cfg")
+	var preferences_path := GAME_DATA.path_join("preferences.cfg")
+	if not FileAccess.file_exists(preferences_path):
+		preferences_path = LEGACY_GAME_DATA.path_join("preferences.cfg")
+	preferences.load(preferences_path)
 	TranslationServer.set_locale(preferences.get_value("interface", "language", "fr"))
 	add_child(request)
 	request.use_threads = true
@@ -45,7 +52,7 @@ func _start() -> void:
 func _update(installed: Array[String]) -> bool:
 	request.timeout = 7
 	request.body_size_limit = 16384
-	if request.request(RELEASE_ROOT + "update.json") != OK:
+	if request.request(RELEASE_ROOT + "latest/download/update.json") != OK:
 		return false
 	var response: Array = await request.request_completed
 	if response[0] != HTTPRequest.RESULT_SUCCESS or response[1] != 200:
@@ -58,7 +65,8 @@ func _update(installed: Array[String]) -> bool:
 		return false
 	if not installed.is_empty() and not _newer(version, installed[0]):
 		return true
-	var checksums = manifest.get("sha256")
+	var legacy_package := not (manifest as Dictionary).has("packages_sha256")
+	var checksums = manifest.get("sha256" if legacy_package else "packages_sha256")
 	if not checksums is Dictionary:
 		return false
 	var checksum = checksums.get(platform)
@@ -69,23 +77,24 @@ func _update(installed: Array[String]) -> bool:
 	var staging := INSTALL_ROOT.path_join(version + "-" + str(OS.get_process_id()) + ".tmp")
 	if DirAccess.make_dir_recursive_absolute(staging) != OK:
 		return false
-	var downloaded := await _download(version, staging, checksum)
+	var downloaded := await _download(version, staging, checksum, legacy_package)
 	if not downloaded:
 		return false
 	$Status.text = tr("UPDATER_INSTALL") % version
 	await RenderingServer.frame_post_draw
-	var installed_ok := _unpack(staging)
+	var installed_ok := _unpack(staging, legacy_package)
 	DirAccess.remove_absolute(staging.path_join("game.zip"))
 	return installed_ok and DirAccess.rename_absolute(staging, INSTALL_ROOT.path_join(version)) == OK
 
 
-func _download(version: String, staging: String, checksum: String) -> bool:
+func _download(version: String, staging: String, checksum: String, legacy_package: bool) -> bool:
 	$Status.text = tr("UPDATER_DOWNLOAD") % version
 	archive_path = staging.path_join("game.zip")
 	request.timeout = 120
 	request.body_size_limit = 200 * 1024 * 1024
 	request.download_file = archive_path
-	var started := request.request("https://github.com/NicolasFerec/godot-roguelite/releases/download/v" + version + "/Arene-coop-" + platform + ".zip")
+	var prefix := "Arene-coop-" if legacy_package else "Le-Dernier-Train-"
+	var started := request.request(RELEASE_ROOT + "download/v" + version + "/" + prefix + platform + ".zip")
 	var ok := false
 	if started == OK:
 		var response: Array = await request.request_completed
@@ -98,8 +107,9 @@ func _download(version: String, staging: String, checksum: String) -> bool:
 	return ok
 
 
-func _unpack(staging: String) -> bool:
-	var allowed := [executable, "GODOT-LICENSE.txt", "GODOT-COPYRIGHT.txt", "GODOTSTEAM-LICENSE.md", "KENNEY-LICENSE.txt"]
+func _unpack(staging: String, legacy_package: bool) -> bool:
+	var archived_executable := legacy_executable if legacy_package else executable
+	var allowed := [archived_executable, "GODOT-LICENSE.txt", "GODOT-COPYRIGHT.txt", "GODOTSTEAM-LICENSE.md", "KENNEY-LICENSE.txt"]
 	if OS.get_name() == "Windows":
 		allowed.append_array(["steam_api64.dll", "libgodotsteam.windows.template_release.x86_64.dll"])
 	else:
@@ -110,7 +120,8 @@ func _unpack(staging: String) -> bool:
 	for filename in allowed:
 		if not zip.file_exists(filename):
 			return false
-		var output := FileAccess.open(staging.path_join(filename), FileAccess.WRITE)
+		var output_name: String = executable if filename == archived_executable else filename
+		var output := FileAccess.open(staging.path_join(output_name), FileAccess.WRITE)
 		if output == null or not output.store_buffer(zip.read_file(filename)):
 			return false
 	zip.close()
@@ -121,13 +132,22 @@ func _unpack(staging: String) -> bool:
 
 func _installed_versions() -> Array[String]:
 	var versions: Array[String] = []
-	if not DirAccess.dir_exists_absolute(INSTALL_ROOT):
-		return versions
-	for folder in DirAccess.get_directories_at(INSTALL_ROOT):
-		if version_pattern.search(folder) != null and FileAccess.file_exists(INSTALL_ROOT.path_join(folder).path_join(executable)):
-			versions.append(folder)
+	for root in [INSTALL_ROOT, LEGACY_INSTALL_ROOT]:
+		if not DirAccess.dir_exists_absolute(root):
+			continue
+		for folder in DirAccess.get_directories_at(root):
+			if version_pattern.search(folder) != null and not versions.has(folder) and _game_path(folder) != "":
+				versions.append(folder)
 	versions.sort_custom(_newer)
 	return versions
+
+
+func _game_path(version: String) -> String:
+	var current := INSTALL_ROOT.path_join(version).path_join(executable)
+	if FileAccess.file_exists(current):
+		return ProjectSettings.globalize_path(current)
+	var legacy := LEGACY_INSTALL_ROOT.path_join(version).path_join(legacy_executable)
+	return ProjectSettings.globalize_path(legacy) if FileAccess.file_exists(legacy) else ""
 
 
 func _newer(a: String, b: String) -> bool:
@@ -142,8 +162,8 @@ func _newer(a: String, b: String) -> bool:
 func _launch(versions: Array[String]) -> void:
 	$Status.text = tr("UPDATER_START")
 	for version in versions:
-		var path := ProjectSettings.globalize_path(INSTALL_ROOT.path_join(version).path_join(executable))
-		if OS.create_process(path, OS.get_cmdline_user_args()) != -1:
+		var path := _game_path(version)
+		if not path.is_empty() and OS.create_process(path, OS.get_cmdline_user_args()) != -1:
 			if OS.get_name() == "Linux" and OS.has_feature("template"):
 				var error := _install_linux_menu_entry()
 				if error != OK:
