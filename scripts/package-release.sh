@@ -39,10 +39,15 @@ for platform in windows linux; do
     for library in "${libraries[@]}"; do
         test -s "$directory/$library"
     done
-    cp assets/tiny_dungeon/LICENSE.txt "$directory/KENNEY-LICENSE.txt"
     cp addons/godotsteam/license.md "$directory/GODOTSTEAM-LICENSE.md"
     curl -fsSL --retry 3 https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$directory/GODOT-LICENSE.txt"
     curl -fsSL --retry 3 https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/COPYRIGHT.txt -o "$directory/GODOT-COPYRIGHT.txt"
+    # Published launchers require the original archive filenames.
+    cp assets/tiny_dungeon/LICENSE.txt "$directory/KENNEY-LICENSE.txt"
+    {
+        printf '\n\nThird-party license: netfox and netfox.internals\n\n'
+        cat addons/netfox/LICENSE
+    } >> "$directory/GODOT-COPYRIGHT.txt"
     (cd "$directory"; zip -q "$output/Arene-coop-$platform-x86_64.zip" ./*)
     godot --headless --path "$stage/launcher" --export-release "$preset" "$output/Arene-coop-Lanceur-$platform-x86_64.$extension"
 done
