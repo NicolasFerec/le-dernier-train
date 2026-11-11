@@ -5,3 +5,6 @@ export_credentials.cfg
 
 /addons/godotsteam/
 /steam_appid.txt
+
+# Locally installed Mythryl prototype artwork
+/assets/mythryl-local/

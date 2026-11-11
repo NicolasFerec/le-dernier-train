@@ -9,6 +9,8 @@ const ITEMS := {
 	"health": ["HEALTH_UPGRADE", 1, ""],
 	"speed": ["SPEED_UPGRADE", 2, "health"],
 }
+# Access for the weapon playtest. This does not grant ownership in the save file.
+const WEAPONS_AVAILABLE_FOR_PLAYTEST := true
 
 var points := 0
 var unlocked: Array[String] = []
@@ -37,7 +39,7 @@ func _ready() -> void:
 func buy(item: String) -> Error:
 	var cost: int = ITEMS[item][1]
 	var prerequisite: String = ITEMS[item][2]
-	if unlocked.has(item) or points < cost or (prerequisite != "" and not unlocked.has(prerequisite)):
+	if is_unlocked(item) or points < cost or (prerequisite != "" and not unlocked.has(prerequisite)):
 		return ERR_UNAVAILABLE
 	unlocked.append(item)
 	points -= cost
@@ -72,7 +74,11 @@ func reward(amount: int) -> Error:
 
 
 func has_secondary() -> bool:
-	return unlocked.has("daggers" if character == 1 else "hammer")
+	return is_unlocked("daggers" if character == 1 else "hammer")
+
+
+func is_unlocked(item: String) -> bool:
+	return unlocked.has(item) or (WEAPONS_AVAILABLE_FOR_PLAYTEST and item in ["hammer", "daggers"])
 
 
 func loadout() -> Array[int]:

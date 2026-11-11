@@ -1,7 +1,7 @@
 extends Control
 
 const PORTRAITS := [
-	preload("res://player/fighter_portrait.svg"),
+	preload("res://player/conductor_portrait.png"),
 	preload("res://player/scout_portrait.svg"),
 ]
 const NAMES := ["FIGHTER", "SCOUT"]

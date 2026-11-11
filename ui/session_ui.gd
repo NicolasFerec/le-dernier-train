@@ -62,7 +62,7 @@ func _refresh_profile() -> void:
 	for item in shop_buttons:
 		var button: Button = shop_buttons[item]
 		var entry: Array = Profile.ITEMS[item]
-		var owned: bool = Profile.unlocked.has(item)
+		var owned: bool = Profile.is_unlocked(item)
 		var requires: String = entry[2]
 		var locked: bool = requires != "" and not Profile.unlocked.has(requires)
 		var name_text := tr(entry[0])

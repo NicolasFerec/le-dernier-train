@@ -3,29 +3,103 @@ extends Node2D
 const INK := Color("#202630")
 const STEEL := Color("#c3d6d5")
 const BRASS := Color("#e6b379")
+const SHADOW := preload("res://arena/isometric_shadow.tres")
+
+const ConductorVisual := preload("res://player/conductor/visual.gd")
+const EXPERIMENT_PATH := "res://player/conductor/experiment/visual.gd"
 
 var actor: Node2D
 var gait := 0.0
 var breathing := 0.0
+var _conductor := ConductorVisual.new()
+var _experiment: Sprite2D
+var _body_shadow: Sprite2D
+var _foot_shadows: Array[Sprite2D] = []
+var _last_render_position: Vector2
 
 
 func _ready() -> void:
-	_process(0.0)
+	_last_render_position = actor.render_position
+	_body_shadow = _add_shadow(Vector2(33, 13), 0.41)
+	for _foot in range(2):
+		_foot_shadows.append(_add_shadow(Vector2(12, 6), 0.78))
+	if actor.try_3d_visual:
+		var candidate: Sprite2D = load(EXPERIMENT_PATH).new()
+		add_child(candidate)
+		if candidate.setup():
+			_experiment = candidate
+		else:
+			candidate.queue_free()
+
+
+func _add_shadow(size: Vector2, opacity: float) -> Sprite2D:
+	var shadow := Sprite2D.new()
+	shadow.texture = SHADOW
+	shadow.scale = size / SHADOW.get_size()
+	shadow.modulate.a = opacity
+	shadow.z_as_relative = false
+	# Above the floor and below all props and actors, independent of their depth.
+	shadow.z_index = 1
+	add_child(shadow)
+	return shadow
 
 
 func _process(delta: float) -> void:
+	var traveled := _last_render_position.distance_to(actor.render_position)
+	_last_render_position = actor.render_position
+	# Ignore room changes and other discontinuous moves.
+	if actor.paused or traveled > 48.0:
+		traveled = 0.0
 	if not actor.paused:
 		var moving: bool = actor.render_movement != Vector2.ZERO
-		gait = fmod(gait + delta * 12.0, TAU) if moving else 0.0
+		gait = fposmod(gait + traveled * TAU / 29.0, TAU) if moving else 0.0
 		breathing = fmod(breathing + delta * 3.0, TAU)
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
 	z_index = Isometric.depth(projected.y)
+	if actor.character == 0:
+		_conductor.update(actor, delta, traveled)
+	_update_shadows()
+	if _experiment != null:
+		_experiment.visible = actor.character == 0 and actor.hp > 0 and _conductor.pose in [
+			ConductorVisual.Pose.IDLE, ConductorVisual.Pose.RUN,
+		]
+		if _experiment.visible:
+			_experiment.update(actor, delta)
 	queue_redraw()
 
 
-func _draw() -> void:
+func _update_shadows() -> void:
+	var feet: Array[Vector2] = []
+	if actor.character == 0:
+		feet = _conductor.ground_contacts(actor.weapon)
+	elif actor.hp > 0:
+		var angle := (Isometric.GROUND * Vector2(actor.render_facing)).angle()
+		var facing := Vector2.from_angle(snappedf(angle, PI / 4))
+		var width := 0.68 if absf(facing.x) > 0.9 else 1.0
+		for side in [-1, 1]:
+			feet.append(Vector2(side * 6 * width, -1) + facing * side * sin(gait) * 5.0)
+	var span := Vector2.ZERO
+	var center := Vector2.ZERO
+	if not feet.is_empty():
+		span = feet[-1] - feet[0]
+		center = feet[0] + span * 0.5
+	_body_shadow.position = center
+	_body_shadow.rotation = span.angle()
+	var size := Vector2(clampf(span.length() + 18.0, 23.0, 39.0), 12)
 	if actor.hp <= 0:
+		size = Vector2(42, 17)
+	_body_shadow.scale = size / SHADOW.get_size()
+	_body_shadow.modulate.a = 0.24 if actor.render_dash_time > 0.0 else 0.38
+	for index in _foot_shadows.size():
+		var shadow := _foot_shadows[index]
+		shadow.visible = index < feet.size()
+		if shadow.visible:
+			shadow.position = feet[index]
+
+
+func _draw() -> void:
+	if actor.hp <= 0 and actor.character != 0:
 		draw_line(Vector2(-13, 3), Vector2(10, -3), INK, 13, true)
 		draw_line(Vector2(-10, 3), Vector2(6, -2), Color("#546069"), 8, true)
 		draw_circle(Vector2(12, -4), 6, Color("#8b786e"), true, -1, true)
@@ -33,10 +107,9 @@ func _draw() -> void:
 		return
 	var direction := (Isometric.GROUND * Vector2(actor.render_facing)).angle()
 	var facing := Vector2.from_angle(snappedf(direction, PI / 4))
-	var attack := clampf((actor.attack_time - actor.attack_delay + actor.SWING_TIME) / actor.SWING_TIME, 0.0, 1.0)
+	var attack := 1.0 - float(actor.swing_progress())
 	var attack_angle: float = actor.attack_direction.angle()
-	var half_angle := acos(actor.SWING_MIN_DOT)
-	var swing_edge := attack_angle + lerpf(half_angle, -half_angle, attack)
+	var swing_edge := attack_angle + float(actor.swing_offset(1.0 - attack))
 	var weapon_facing := (Isometric.GROUND * Vector2(actor.attack_direction)).normalized() if attack > 0 else facing
 	var dashing: bool = actor.render_dash_time > 0
 	var scout: bool = actor.character == 1
@@ -56,16 +129,22 @@ func _draw() -> void:
 		front_hand.x -= 17 * width
 		rear_hand.x += 22 * width
 
-	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 0.45))
-	draw_circle(Vector2.ZERO, 17, Color("#16191d", 0.55))
-	draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
-	draw_set_transform(Vector2.ZERO)
+	if not multiplayer.get_peers().is_empty():
+		draw_set_transform(Vector2.ZERO, 0, Vector2(1, 0.45))
+		draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
+		draw_set_transform(Vector2.ZERO)
 	if dashing:
+		var dash_axis := (Isometric.GROUND * Vector2(actor.dash_direction)).normalized()
 		for offset in [0, 6, 12]:
-			var start := Vector2(0, -8 - offset) - facing * 12
-			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
+			var start := Vector2(0, -8 - offset) - dash_axis * 12
+			draw_line(start, start - dash_axis * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
-		_draw_swing(attack, team, attack_angle - half_angle, swing_edge)
+		_draw_swing(attack, team, attack_angle + actor.swing_offset(0.0), swing_edge)
+
+	if not scout:
+		if _experiment == null or not _experiment.visible:
+			_conductor.draw(self, actor)
+		return
 
 	for side in [-1, 1]:
 		var foot: Vector2 = Vector2(side * 6 * width, -1) + facing * side * stride
@@ -135,9 +214,26 @@ func _draw_weapon(hand: Vector2, angle: float, scout: bool) -> void:
 
 
 func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -> void:
-	var points := PackedVector2Array()
-	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
-	for index in range(16):
-		var ray := Vector2.from_angle(lerpf(maxf(start_angle, edge - 1.6), edge, index / 15.0))
-		points.append(origin + Isometric.GROUND * (ray * actor.reach))
-	draw_polyline(points, Color(color, 0.55 * sin(PI * attack)), 4, true)
+	var origin: Vector2 = actor.projected_swing_origin() - Isometric.GROUND * Vector2(actor.render_position)
+	var reach: float = actor.swing_reach()
+	var trail_angle := move_toward(edge, start_angle, 1.25)
+	var opacity := sin(PI * attack)
+	var width := 15.0 if actor.heavy_attack else 9.0
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	var outer_colors := PackedColorArray()
+	var inner_colors := PackedColorArray()
+	for index in range(14):
+		var along := index / 13.0
+		var ray := Vector2.from_angle(lerpf(trail_angle, edge, along))
+		var taper := maxf(0.025, sin(PI * along))
+		outer.append(origin + Isometric.GROUND * (ray * reach))
+		inner.append(origin + Isometric.GROUND * (ray * (reach - width * taper)))
+		outer_colors.append(Color(color.lerp(Color.WHITE, 0.72), opacity * along))
+		inner_colors.append(Color(color, opacity * along * 0.12))
+	inner.reverse()
+	inner_colors.reverse()
+	outer.append_array(inner)
+	outer_colors.append_array(inner_colors)
+	if not is_equal_approx(trail_angle, edge):
+		draw_polygon(outer, outer_colors)

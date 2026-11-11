@@ -70,13 +70,15 @@ func _fit_viewport() -> void:
 	_update_camera()
 
 
-func _update_camera() -> void:
+func _update_camera(delta := 0.0) -> void:
 	train.visible = room == 0
 	GameAudio.set_scene(GameAudio.Scene.WAGON if train.visible else GameAudio.Scene.SILENT)
 	var local_player: Node2D = players.get(multiplayer.get_unique_id())
 	var fallback := Vector2(TrainLobby.SPAWNS[0]) if room == 0 else mission.spawn_point(0)
 	var focus := Vector2(local_player.render_position) if local_player != null else fallback
 	transform = design_layout.translated_local(visible_area.get_center() - Isometric.GROUND * focus)
+	if train.visible:
+		train.update_furniture_visibility(focus, delta)
 
 
 func _setup_network_motion() -> void:
@@ -105,7 +107,7 @@ func _prepare_network_motion() -> void:
 		var player: PlayerLocomotion = players[id]
 		var lane := _player_motion[player.slot]
 		active_slots[player.slot] = true
-		lane.bind(id, _motion_epoch, player, _movement_bounds())
+		lane.bind(id, _motion_epoch, player, _movement_bounds(), _movement_obstacles())
 		lane.paused = game_paused or run_finished
 		lane.body.hp = player.hp
 		lane.body.speed = player.speed
@@ -113,7 +115,7 @@ func _prepare_network_motion() -> void:
 			lane.gather(_read_movement())
 	for slot in _player_motion.size():
 		if not active_slots.has(slot):
-			_player_motion[slot].bind(0, _motion_epoch, null, Rect2())
+			_player_motion[slot].bind(0, _motion_epoch, null, Rect2(), [])
 	for index in _enemy_motion.size():
 		var enemy: Node2D = enemies[index] if index < enemies.size() else null
 		_enemy_motion[index].prepare(enemy, _motion_epoch)
@@ -141,7 +143,7 @@ func _finish_network_motion() -> void:
 		lane.record_pose()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var fraction := Engine.get_physics_interpolation_fraction()
 	var online := Session.is_online()
 	var authority := multiplayer.is_server()
@@ -168,7 +170,7 @@ func _process(_delta: float) -> void:
 			enemy.render_position = enemy.previous_position.lerp(enemy.position, fraction)
 		else:
 			enemy.render_position = enemy.position
-	_update_camera()
+	_update_camera(delta)
 
 
 func _host() -> void:
@@ -394,6 +396,7 @@ func _clear_room() -> void:
 func _add_player(id: int, slot: int) -> Node2D:
 	var player := PLAYER.instantiate()
 	player.slot = slot
+	player.try_3d_visual = room == 0 and id == multiplayer.get_unique_id() and "--conductor-3d" in OS.get_cmdline_user_args()
 	player.paused = game_paused
 	player.position = TrainLobby.SPAWNS[slot] if room == 0 else mission.spawn_point(slot)
 	player.previous_position = player.position
@@ -435,12 +438,17 @@ func _physics_process(delta: float) -> void:
 		return
 	var online := Session.is_online()
 	if not game_paused and not run_finished:
-		if online:
-			for player in players.values():
-				player.step_attack(delta)
-		else:
+		if not online:
 			players[1].movement = _read_movement()
-			players[1].step(delta, _movement_bounds())
+		for id in players:
+			var player: Node2D = players[id]
+			var previous: float = player.swing_progress()
+			if online:
+				player.step_attack(delta)
+			else:
+				player.step(delta, _movement_bounds(), _movement_obstacles())
+			if previous < 1.0 and player.hp > 0:
+				_resolve_attack(id, player, previous)
 		for enemy in enemies:
 			enemy.step(delta, players)
 		if room > 0 and _living_players() == 0:
@@ -463,12 +471,23 @@ func _physics_process(delta: float) -> void:
 func _read_movement() -> Vector2:
 	if game_paused or run_finished or open_station >= 0:
 		return Vector2.ZERO
-	var movement := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	return Isometric.GROUND.affine_inverse().basis_xform(movement).normalized() * movement.length()
+	var horizontal := Input.get_axis("move_left", "move_right")
+	var vertical := Input.get_axis("move_up", "move_down")
+	# Two fully pressed directions follow a projected ground axis.
+	if absf(horizontal) == 1.0 and absf(vertical) == 1.0:
+		return Vector2(horizontal, 0.0) if horizontal == vertical else Vector2(0.0, vertical)
+	var screen_direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	# Keep stick strength and ground speed while converting the screen heading.
+	var ground_direction := Isometric.GROUND.affine_inverse().basis_xform(screen_direction)
+	return ground_direction.normalized() * screen_direction.length()
 
 
 func _movement_bounds() -> Rect2:
 	return TrainLobby.BOUNDS if room == 0 else mission.bounds
+
+
+func _movement_obstacles() -> Array[Rect2]:
+	return train.obstacles if room == 0 else []
 
 
 func _set_game_paused(active: bool) -> void:
@@ -552,7 +571,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var local: Node2D = players.get(multiplayer.get_unique_id())
 		if local != null:
 			var lane := _player_motion[local.slot]
-			lane.bind(multiplayer.get_unique_id(), _motion_epoch, local, _movement_bounds())
+			lane.bind(multiplayer.get_unique_id(), _motion_epoch, local, _movement_bounds(), _movement_obstacles())
 			lane.request_dodge()
 	elif multiplayer.is_server():
 		_act(1, dodge, heavy)
@@ -580,20 +599,19 @@ func _act(id: int, dodge: bool, heavy := false) -> void:
 		if player.weapon == 1:
 			cue = GameAudio.Cue.HAMMER if player.character == 0 else GameAudio.Cue.DAGGERS
 		_emit_world_sound(cue, player.position)
-		_resolve_attack(id, player, heavy)
 
 
-func _resolve_attack(id: int, player: Node2D, heavy: bool) -> void:
+func _resolve_attack(id: int, player: Node2D, previous: float) -> void:
 	if room == 0:
 		for index in TrainLobby.DUMMIES.size():
-			if player.can_hit(TrainLobby.DUMMIES[index], 12.0):
+			if player.swept_hit(index, TrainLobby.DUMMIES[index], previous, 12.0):
 				_practice_hit(room_token, index)
 				if Session.is_online() and not multiplayer.get_peers().is_empty():
 					_practice_hit.rpc(room_token, index)
 		return
-	var hit_damage: int = player.damage * (2 if heavy else 1)
+	var hit_damage: int = player.damage * (2 if player.heavy_attack else 1)
 	for enemy in enemies:
-		if enemy.hp > 0 and player.can_hit(enemy.position):
+		if enemy.hp > 0 and player.swept_hit(enemy, enemy.position, previous):
 			var damage := mini(enemy.hp, hit_damage)
 			enemy.hp -= damage
 			run_stats[id].dealt += damage
@@ -631,7 +649,7 @@ func _broadcast_state() -> void:
 		roster[id] = [player.slot, player.position, player.hp, player.facing, player.attack_time,
 			player.dash_time, player.max_hp, player.reach, player.attack_delay,
 			player.dash_cooldown, player.character, player.weapon, player.movement, player.dash_direction, player.speed,
-			player.attack_origin, player.attack_direction]
+			player.attack_origin, player.attack_direction, player.heavy_attack, player.reverse_light_swing]
 	var enemy_states := []
 	for enemy in enemies:
 		enemy_states.append([enemy.position, enemy.hp, enemy.facing, enemy.moving, enemy.hit_cooldown])
@@ -673,6 +691,8 @@ func _receive_state(number: int, token: int, epoch: int, roster: Dictionary, ene
 		player.speed = state[14]
 		player.attack_origin = state[15]
 		player.attack_direction = state[16]
+		player.heavy_attack = state.size() > 17 and state[17]
+		player.reverse_light_swing = state.size() > 18 and state[18]
 	for index in enemy_states.size():
 		var state: Array = enemy_states[index]
 		if index == enemies.size():

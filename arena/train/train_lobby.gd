@@ -1,44 +1,133 @@
 extends Node2D
 class_name TrainLobby
 
-const FLOOR := Rect2(0, 0, 2460, 520)
-const PRACTICE := Rect2(1440, 147, 350, 251)
-const BOUNDS := Rect2(30, 76, 2400, 408)
-const SPAWNS := [Vector2(285, 245), Vector2(225, 295), Vector2(345, 295), Vector2(285, 345)]
+const FLOOR := Rect2(0, 0, 1560, 360)
+const BOUNDS := Rect2(30, 73, 1500, 251)
+const SPAWNS := [Vector2(480, 149), Vector2(435, 178), Vector2(525, 178), Vector2(480, 220)]
 const DEPARTURE_STATION := 3
 const DEPARTURE_RADIUS := 90.0
 const INVITATION_STATION := 4
 const STATIONS := [
-	[Vector2(310, 119), "CHARACTER_STATION", Color("#63c0bc")],
-	[Vector2(830, 119), "ARSENAL_STATION", Color("#dfad6b")],
-	[Vector2(1125, 119), "PASSIVES_STATION", Color("#b4abeb")],
-	[Vector2(2195, 167), "DEPARTURE_STATION", Color("#8ccfa3")],
-	[Vector2(520, 141), "STEAM_INVITATION_STATION", Color("#8dc2f4")],
+	[Vector2(148, 100), "CHARACTER_STATION", Color("#63c0bc")],
+	[Vector2(480, 105), "ARSENAL_STATION", Color("#dfad6b")],
+	[Vector2(647, 103), "PASSIVES_STATION", Color("#b4abeb")],
+	[Vector2(1370, 161), "DEPARTURE_STATION", Color("#8ccfa3")],
+	[Vector2(310, 105), "STEAM_INVITATION_STATION", Color("#8dc2f4")],
 ]
-const DUMMIES := [Vector2(1515, 226), Vector2(1615, 333), Vector2(1720, 225)]
-const JOINTS := [655.0, 1355.0, 1915.0]
-const WOOD := preload("res://arena/train/walnut_floor.webp")
-const STEEL_TREAD := preload("res://arena/train/steel_tread.webp")
+const DUMMIES := [Vector2(889, 159), Vector2(972, 257), Vector2(1055, 153)]
+const PRACTICE_AREA := Rect2(814, 108, 318, 200)
+const PRACTICE_LABEL := Vector2(976, 91)
+const WALL_BAY_WIDTH := 390
+const WALL_HEIGHT := 116.0
+const SKIRT_HEIGHT := 32.0
+const FLOOR_TEXTURE := preload("res://arena/train/floor.webp")
+const WALL := preload("res://arena/train/wall.webp")
+const END_WALL := preload("res://arena/train/end_wall.webp")
+const PRACTICE_FLOOR := preload("res://arena/train/practice_floor.webp")
+const RAILWAY := preload("res://arena/train/railway.webp")
+const SKIRT := preload("res://arena/train/skirt.webp")
+const LIGHT_POOL := preload("res://arena/train/light_pool.tres")
+const SHADOW := preload("res://arena/isometric_shadow.tres")
 const INK := Color("#1d2228")
 const BRASS := Color("#d1a065")
 
+# Each sprite lists the painted slopes of its ground edges and the UVs of its feet.
+const STATION_PROPS := [
+	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 74), 98.0, Vector2(0.42, -0.53),
+		[Vector2(0.05, 0.9), Vector2(0.28, 0.99), Vector2(0.52, 0.91), Vector2(0.63, 0.95), Vector2(0.96, 0.88)]],
+	[preload("res://arena/train/workbench.webp"), Vector2(480, 83), 87.0, Vector2(0.41, -0.56),
+		[Vector2(0.06, 0.71), Vector2(0.25, 0.79), Vector2(0.50, 0.87), Vector2(0.69, 0.98), Vector2(0.93, 0.85)]],
+	[preload("res://arena/train/lectern.webp"), Vector2(647, 79), 84.0, Vector2(0.44, -0.46),
+		[Vector2(0.09, 0.83), Vector2(0.37, 0.74), Vector2(0.54, 0.98), Vector2(0.88, 0.87)]],
+	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 112.0, Vector2(0.31, -0.45),
+		[Vector2(0.09, 0.8), Vector2(0.25, 0.75), Vector2(0.78, 0.99), Vector2(0.94, 0.92)]],
+	[preload("res://arena/train/telegraph.webp"), Vector2(310, 85), 89.0, Vector2(0.43, -0.46),
+		[Vector2(0.13, 0.77), Vector2(0.65, 0.98), Vector2(0.93, 0.85)]],
+]
+const CRATE := preload("res://arena/train/crate.webp")
+const LANTERN := preload("res://arena/train/lantern.webp")
+const TARGET := preload("res://arena/train/dummy.webp")
+const CRATE_CONTACTS := [Vector2(0.07, 0.78), Vector2(0.54, 0.98), Vector2(0.95, 0.79)]
+const LANTERN_CONTACTS := [Vector2(0.06, 0.87), Vector2(0.57, 0.98), Vector2(0.91, 0.88)]
+const TARGET_CONTACTS := [Vector2(0.19, 0.89), Vector2(0.52, 0.98), Vector2(0.82, 0.9)]
+const TARGET_HEIGHT := 74.0
+const IMPACT_DURATION := 0.24
+const CRATES := [Vector2(66, 51), Vector2(754, 55), Vector2(1168, 57), Vector2(1478, 62),
+	Vector2(222, 334), Vector2(703, 334), Vector2(1225, 333)]
+const LANTERNS := [Vector2(78, 330), Vector2(415, 336), Vector2(807, 63), Vector2(1168, 330),
+	Vector2(1487, 328)]
+
 var _interactable_station := -1
 var impacts := PackedFloat32Array()
-var _dummy_visuals: Array[Node2D] = []
+var obstacles: Array[Rect2] = []
+var _furniture: Array[Sprite2D] = []
+var _dummy_visuals: Array[Sprite2D] = []
 
 
 func _ready() -> void:
 	ControlHints.changed.connect(queue_redraw)
 	impacts.resize(DUMMIES.size())
+	for prop in STATION_PROPS:
+		_add_prop(prop[0], prop[1], prop[2], prop[4], prop[3])
+	for point in CRATES:
+		_add_prop(CRATE, point, 34.0, CRATE_CONTACTS, Vector2(0.41, -0.52))
+	for point in LANTERNS:
+		_add_prop(LANTERN, point, 49.0, LANTERN_CONTACTS, Vector2(0.32, -0.45))
 	for index in DUMMIES.size():
-		# The base is painted on the floor. The upright target sorts with actors.
-		var dummy := Node2D.new()
+		var dummy := _add_prop(TARGET, DUMMIES[index], TARGET_HEIGHT, TARGET_CONTACTS)
 		dummy.name = "PracticeTarget%d" % index
-		dummy.position = Isometric.GROUND * DUMMIES[index]
-		dummy.z_index = Isometric.depth(dummy.position.y)
-		dummy.draw.connect(_draw_dummy.bind(dummy, index))
-		add_child(dummy)
+		dummy.draw.connect(_draw_dummy_impact.bind(dummy, index))
 		_dummy_visuals.append(dummy)
+
+
+func _add_prop(texture: Texture2D, ground_position: Vector2, height: float, contacts: Array,
+		painted_slopes := Vector2.ZERO) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.offset.y = -texture.get_height() * 0.45
+	var factor := height / texture.get_height()
+	var origin := Isometric.GROUND * ground_position
+	var across := Vector2.RIGHT
+	var solid := painted_slopes != Vector2.ZERO
+	if solid:
+		# Keep verticals upright. Compress and shear the horizontal basis so the
+		# two painted ground edges land on the slopes of the wagon's axes.
+		var floor_slope := Isometric.GROUND.x.y / Isometric.GROUND.x.x
+		across = Vector2((painted_slopes.x - painted_slopes.y) / (2.0 * floor_slope),
+			-(painted_slopes.x + painted_slopes.y) * 0.5)
+	sprite.transform = Transform2D(across * factor, Vector2.DOWN * factor, origin)
+
+	var pixels := sprite.get_rect()
+	var feet := PackedVector2Array()
+	var ground_bounds := Rect2()
+	var inverse := Isometric.GROUND.affine_inverse()
+	for contact: Vector2 in contacts:
+		var foot := sprite.transform.basis_xform(pixels.position + pixels.size * contact)
+		var ground := inverse * (origin + foot)
+		ground_bounds = Rect2(ground, Vector2.ZERO) if feet.is_empty() else ground_bounds.expand(ground)
+		feet.append(foot)
+	var sorting_point := Isometric.GROUND * ground_bounds.get_center() if solid else origin
+	sprite.z_index = Isometric.depth(sorting_point.y)
+	add_child(sprite)
+	if solid:
+		obstacles.append(ground_bounds.grow(9.0))
+		_furniture.append(sprite)
+
+	var shadow := Node2D.new()
+	shadow.position = origin
+	shadow.z_index = 1
+	shadow.draw.connect(_draw_prop_shadow.bind(shadow, feet, height))
+	add_child(shadow)
+	return sprite
+
+
+func update_furniture_visibility(player_ground: Vector2, delta: float) -> void:
+	var foot := Isometric.GROUND * player_ground
+	var body := Rect2(foot + Vector2(-12, -46), Vector2(24, 46))
+	var player_depth := Isometric.depth(foot.y)
+	for sprite in _furniture:
+		var overlaps := sprite.z_index >= player_depth and (sprite.transform * sprite.get_rect()).intersects(body)
+		sprite.modulate.a = move_toward(sprite.modulate.a, 0.42 if overlaps else 1.0, delta * 9.0)
 
 
 func show_interaction(station: int) -> void:
@@ -49,7 +138,7 @@ func show_interaction(station: int) -> void:
 
 func flash(index: int) -> void:
 	if index >= 0 and index < DUMMIES.size():
-		impacts[index] = 0.24
+		impacts[index] = IMPACT_DURATION
 		_dummy_visuals[index].queue_redraw()
 
 
@@ -57,7 +146,11 @@ func _process(delta: float) -> void:
 	for index in impacts.size():
 		if impacts[index] > 0:
 			impacts[index] = maxf(0, impacts[index] - delta)
-			_dummy_visuals[index].queue_redraw()
+			var impact := impacts[index] / IMPACT_DURATION
+			var dummy := _dummy_visuals[index]
+			dummy.rotation = sin(impact * TAU) * impact * 0.16
+			dummy.self_modulate = Color.WHITE.lerp(Color(1.35, 1.25, 1.12), impact)
+			dummy.queue_redraw()
 
 
 func _notification(what: int) -> void:
@@ -66,151 +159,89 @@ func _notification(what: int) -> void:
 
 
 func _draw() -> void:
+	draw_set_transform_matrix(Isometric.GROUND.translated(Vector2(0, SKIRT_HEIGHT)))
+	# The two tracks run parallel to the carriage on the very same grid as its floor.
+	_draw_band(RAILWAY, Rect2(-1100, -20, 3760, 348), 320.0, Color("#8995a7"))
+	_draw_band(RAILWAY, Rect2(-1100, 328, 3760, 360), 320.0, Color("#8290a3"))
 	draw_set_transform_matrix(Isometric.GROUND)
-	draw_rect(FLOOR.grow(100), Color("#252e37"))
-	for y in [-74, -49, 569, 594]:
-		draw_line(Vector2(-118, y), Vector2(2578, y), Color("#3e4952"), 5, true)
-	for x in range(-100, 2561, 44):
-		for y in [-61, 581]:
-			draw_rect(Rect2(x, y - 19, 11, 38), Color("#4c565d"))
-	draw_rect(FLOOR.grow(10), INK)
-	_draw_surface(FLOOR, WOOD, 260, Color("#d3c2af"))
-	draw_rect(Rect2(8, 202, 2444, 116), Color("#32494d", 0.32))
-	for y in [202, 318]:
-		draw_line(Vector2(11, y), Vector2(2449, y), Color("#b4ab85", 0.58), 2, true)
-	for x in JOINTS:
-		draw_rect(Rect2(x - 12, 0, 24, 520), Color("#38434b"))
-		for rib in [-7, 0, 7]:
-			draw_line(Vector2(x + rib, 0), Vector2(x + rib, 520), Color("#6a777c"), 2)
-	for y in [2, 508]:
-		draw_rect(Rect2(0, y, 2460, 10), Color("#384750"))
-		for x in range(15, 2460, 26):
-			draw_circle(Vector2(x, y + 5), 2, BRASS)
-	_draw_surface(PRACTICE, STEEL_TREAD, 125, Color("#93a4a8"))
-	draw_rect(PRACTICE, BRASS, false, 3)
-	for index in STATIONS.size():
-		var station: Array = STATIONS[index]
-		var radius := DEPARTURE_RADIUS if index == DEPARTURE_STATION else 49.0
-		draw_circle(station[0], radius, Color("#29383c", 0.8))
-		draw_arc(station[0], radius, 0, TAU, 48, station[2], 3, true)
-	for point in DUMMIES:
-		draw_circle(point, 30, Color("#242c34"))
-		draw_arc(point, 28, 0, TAU, 32, Color("#b18457"), 2, true)
+	draw_texture_rect(FLOOR_TEXTURE, FLOOR, false)
+	_draw_band(SKIRT, Rect2(0, 0, FLOOR.size.x, 10), 246.0)
+	_draw_band(SKIRT, Rect2(0, FLOOR.end.y - 11, FLOOR.size.x, 11), 246.0)
+	draw_texture_rect(PRACTICE_FLOOR, PRACTICE_AREA, false)
+	_draw_floor_lights()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
-	# Low rear bulkhead, windows and brass framing in projected space.
-	_wall_segment(0, 2460, 31, Color("#426169"))
-	for x in range(28, 2420, 112):
-		var a := Isometric.GROUND * Vector2(x, 0)
-		var b := Isometric.GROUND * Vector2(x + 75, 0)
-		var rise := Vector2(0, -23)
-		draw_colored_polygon(PackedVector2Array([a + rise, b + rise, b + Vector2(0, -8), a + Vector2(0, -8)]), Color("#6ea0aa"))
-		draw_line(a + rise, b + rise, BRASS, 2, true)
-		draw_line(a + Vector2(0, -7), b + Vector2(0, -7), INK, 2, true)
-	_wall_segment(0, 2460, 4, BRASS)
-	for x in [85, 520, 715, 1000, 1265, 1830, 1995, 2360]:
-		_draw_lamp(Isometric.GROUND * Vector2(x, 43))
-	for x in [75, 470, 573, 718, 1220, 1825, 1970, 2340]:
-		_draw_crate(Vector2(x, 52), 34, Color("#665643"))
-	for x in [212, 926, 1390, 2038, 2296]:
-		_draw_crate(Vector2(x, 488), 26, Color("#485a5d"))
-	for x in [180, 770, 1070, 2010, 2280]:
-		_draw_bench(Vector2(x, 34))
+	# Leave the near end open so that the camera can see the walkable floor.
+	_draw_side(END_WALL, Vector2.ZERO, Isometric.GROUND.y, FLOOR.size.y, WALL_HEIGHT, 0.0, FLOOR.size.y)
+	_draw_side(WALL, Vector2.ZERO, Isometric.GROUND.x, FLOOR.size.x, WALL_HEIGHT, 0.0, WALL_BAY_WIDTH)
+	_draw_side(SKIRT, Isometric.GROUND * Vector2(0, FLOOR.size.y), Isometric.GROUND.x,
+		FLOOR.size.x, SKIRT_HEIGHT, SKIRT_HEIGHT, 246.0)
+	_draw_side(SKIRT, Isometric.GROUND * Vector2(FLOOR.size.x, 0), Isometric.GROUND.y,
+		FLOOR.size.y, SKIRT_HEIGHT, SKIRT_HEIGHT, 260.0)
+
 	for index in STATIONS.size():
 		_draw_station(index)
-	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
+	_label(Isometric.GROUND * PRACTICE_LABEL + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
 	var practice_buttons := []
 	for action in ["attack", "heavy_attack", "dodge"]:
 		practice_buttons.append(ControlHints.binding_label(action, ControlHints.using_gamepad, true))
-	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
+	_label(Isometric.GROUND * PRACTICE_LABEL + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
 
 
-func _draw_surface(area: Rect2, texture: Texture2D, tile_size: int, tint: Color) -> void:
-	for y in range(0, int(area.size.y), tile_size):
-		for x in range(0, int(area.size.x), tile_size):
-			var origin := area.position + Vector2(x, y)
-			var size := Vector2(tile_size, tile_size).min(area.end - origin)
-			var source := Rect2(Vector2.ZERO, texture.get_size() * size / tile_size)
-			draw_texture_rect_region(texture, Rect2(origin, size), source, tint)
+func _draw_floor_lights() -> void:
+	for x in range(65, int(FLOOR.size.x), WALL_BAY_WIDTH / 3):
+		draw_texture_rect(LIGHT_POOL, Rect2(Vector2(x - 64, -6), Vector2(128, 185)),
+			false, Color(0.27, 0.54, 0.75, 0.25))
+	for point in [STATIONS[1][0], PRACTICE_AREA.get_center(), STATIONS[DEPARTURE_STATION][0]]:
+		draw_texture_rect(LIGHT_POOL, Rect2(point - Vector2(140, 110), Vector2(280, 250)),
+			false, Color(0.92, 0.56, 0.24, 0.39))
+	for point in LANTERNS:
+		draw_texture_rect(LIGHT_POOL, Rect2(point - Vector2(80, 98), Vector2(160, 132)),
+			false, Color(0.92, 0.56, 0.24, 0.3))
 
 
-func _wall_segment(start: float, end: float, height: float, color: Color) -> void:
-	var a := Isometric.GROUND * Vector2(start, 0)
-	var b := Isometric.GROUND * Vector2(end, 0)
-	var top := Vector2(0, -height)
-	draw_colored_polygon(PackedVector2Array([a, b, b + top, a + top]), color)
-	draw_line(a + top, b + top, INK, 2, true)
+func _draw_band(texture: Texture2D, area: Rect2, tile_width: float, tint := Color.WHITE) -> void:
+	var offset := 0.0
+	while offset < area.size.x:
+		var width := minf(tile_width, area.size.x - offset)
+		var target := Rect2(area.position + Vector2(offset, 0), Vector2(width, area.size.y))
+		var source := Rect2(Vector2.ZERO, texture.get_size() * Vector2(width / tile_width, 1))
+		draw_texture_rect_region(texture, target, source, tint)
+		offset += width
 
 
-func _draw_lamp(point: Vector2) -> void:
-	draw_set_transform(point)
-	draw_line(Vector2.ZERO, Vector2(0, -25), INK, 5, true)
-	for radius in [24, 17, 10]:
-		draw_circle(Vector2(0, -25), radius, Color("#ffc170", 0.08))
-	draw_rect(Rect2(-4, -31, 8, 9), Color("#ffc779"))
-	draw_line(Vector2(-6, -32), Vector2(6, -32), INK, 3, true)
-	draw_set_transform(Vector2.ZERO)
+func _draw_side(texture: Texture2D, origin: Vector2, axis: Vector2,
+		length: float, height: float, bottom: float, tile_width: float) -> void:
+	draw_set_transform_matrix(Transform2D(axis, Vector2.DOWN, origin))
+	_draw_band(texture, Rect2(0, bottom - height, length, height), tile_width)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-func _draw_crate(point: Vector2, width: float, color: Color) -> void:
-	var half := width * 0.5
-	var corners := PackedVector2Array([
-		Isometric.GROUND * (point + Vector2(-half, -half)), Isometric.GROUND * (point + Vector2(half, -half)),
-		Isometric.GROUND * (point + Vector2(half, half)), Isometric.GROUND * (point + Vector2(-half, half))
-	])
-	var rise := Vector2(0, -15)
-	draw_colored_polygon(PackedVector2Array([corners[1], corners[2], corners[2] + rise, corners[1] + rise]), color.darkened(0.38))
-	draw_colored_polygon(PackedVector2Array([corners[2], corners[3], corners[3] + rise, corners[2] + rise]), color.darkened(0.25))
-	draw_colored_polygon(PackedVector2Array([corners[0] + rise, corners[1] + rise, corners[2] + rise, corners[3] + rise]), color)
-	draw_polyline(PackedVector2Array([corners[1] + rise, corners[2] + rise, corners[3] + rise]), BRASS.darkened(0.25), 2, true)
-	draw_line(corners[0] + rise, corners[2] + rise, INK, 2, true)
-
-
-func _draw_bench(point: Vector2) -> void:
-	var a := Isometric.GROUND * (point - Vector2(34, 0))
-	var b := Isometric.GROUND * (point + Vector2(34, 0))
-	var rise := Vector2(0, -12)
-	draw_line(a, a + rise, INK, 6, true)
-	draw_line(b, b + rise, INK, 6, true)
-	draw_line(a + rise, b + rise, Color("#523e34"), 13, true)
-	draw_line(a + rise - Vector2(0, 2), b + rise - Vector2(0, 2), Color("#8a6750"), 8, true)
-	draw_line(a + rise - Vector2(0, 6), b + rise - Vector2(0, 6), Color("#b58b62"), 2, true)
-
+func _draw_prop_shadow(canvas: Node2D, feet: PackedVector2Array, height: float) -> void:
+	var footprint := Rect2(feet[0], Vector2.ZERO)
+	for foot in feet:
+		footprint = footprint.expand(foot)
+	canvas.draw_texture_rect(SHADOW, footprint.grow_individual(8, 5, 8, 4), false, Color(1, 1, 1, 0.45))
+	var pad := Vector2(11, 5) if height >= 60.0 else Vector2(9, 5)
+	for foot in feet:
+		canvas.draw_texture_rect(SHADOW, Rect2(foot - pad * 0.5, pad), false, Color(1, 1, 1, 0.8))
 
 func _draw_station(index: int) -> void:
 	var station: Array = STATIONS[index]
-	var center := Isometric.GROUND * Vector2(station[0])
+	var prop: Array = STATION_PROPS[index]
+	var title_anchor := Isometric.GROUND * Vector2(prop[1]) - Vector2(0, prop[2] + 8.0)
 	var accent: Color = station[2]
-	draw_set_transform(center)
-	draw_colored_polygon(PackedVector2Array([Vector2(-28, -13), Vector2(0, -28), Vector2(28, -13), Vector2(28, 1),
-		Vector2(0, 16), Vector2(-28, 1)]), INK)
-	draw_colored_polygon(PackedVector2Array([Vector2(-26, -14), Vector2(0, -28), Vector2(26, -14), Vector2(0, 0)]), Color("#5a6869"))
-	draw_line(Vector2(-25, -13), Vector2(0, 1), accent, 2, true)
-	draw_line(Vector2(0, 1), Vector2(25, -13), accent, 2, true)
-	draw_rect(Rect2(-14, -41, 28, 24), INK)
-	draw_rect(Rect2(-11, -38, 22, 18), accent.darkened(0.45))
-	match index:
-		0:
-			draw_circle(Vector2(0, -32), 4, accent)
-			draw_arc(Vector2(0, -20), 8, PI, TAU, 12, accent, 2, true)
-		1:
-			draw_line(Vector2(-6, -24), Vector2(7, -35), accent, 3, true)
-			draw_line(Vector2(-6, -30), Vector2(-1, -24), BRASS, 2, true)
-		2:
-			for offset in [Vector2(-6, -30), Vector2(0, -34), Vector2(6, -27)]:
-				draw_line(Vector2(0, -24), offset, accent, 1, true)
-				draw_circle(offset, 2, accent)
-		DEPARTURE_STATION:
-			draw_line(Vector2(-6, -30), Vector2(7, -30), accent, 2, true)
-			draw_polyline(PackedVector2Array([Vector2(2, -35), Vector2(7, -30), Vector2(2, -25)]), accent, 2, true)
-		INVITATION_STATION:
-			var signal_center := Vector2(0, -25)
-			draw_circle(signal_center, 2, accent)
-			for radius in [5.0, 9.0]:
-				draw_arc(signal_center, radius, -PI * 0.81, -PI * 0.19, 14, accent, 1.5, true)
-	draw_set_transform(Vector2.ZERO)
-	var title := tr(station[1])
-	var title_anchor := center + Vector2(0, -50)
+	var active := index == _interactable_station
+	if active or index == DEPARTURE_STATION:
+		var radius := DEPARTURE_RADIUS if index == DEPARTURE_STATION else 16.0
+		draw_set_transform_matrix(Isometric.GROUND)
+		draw_arc(station[0], radius, 0, TAU, 48, Color(accent, 0.64 if active else 0.25), 2, true)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+	_draw_station_label(index, title_anchor, accent)
+
+
+func _draw_station_label(index: int, title_anchor: Vector2, accent: Color) -> void:
+	var title := tr(STATIONS[index][1])
 	_label(title_anchor, title, accent)
 	if index == _interactable_station:
 		var font := ThemeDB.fallback_font
@@ -226,19 +257,14 @@ func _draw_station(index: int) -> void:
 		draw_string(font, badge + Vector2(-key_width / 2, 4), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 
 
-func _draw_dummy(dummy: Node2D, index: int) -> void:
-	var impact := impacts[index] / 0.24
-	dummy.draw_line(Vector2.ZERO, Vector2(0, -18), INK, 7, true)
-	dummy.draw_line(Vector2(-11, -25), Vector2(11, -25), BRASS.darkened(0.35), 5, true)
-	var center := Vector2(impact * 6, -29)
-	dummy.draw_circle(center, 13, INK)
-	dummy.draw_circle(center, 10, BRASS.lerp(Color("#fff7bb"), impact))
-	dummy.draw_arc(center, 6, 0, TAU, 24, Color("#944947"), 3, true)
-	dummy.draw_circle(center, 2, INK)
-	if impact > 0:
-		for angle in range(0, 360, 90):
-			var ray := Vector2.from_angle(deg_to_rad(angle + 30))
-			dummy.draw_line(center + ray * 15, center + ray * (19 + 10 * (1 - impact)), Color("#ffdf86", impact), 2, true)
+func _draw_dummy_impact(dummy: Sprite2D, index: int) -> void:
+	var impact := impacts[index] / IMPACT_DURATION
+	if impact <= 0:
+		return
+	var center := Vector2(0, -TARGET.get_height() * 0.56)
+	for angle in range(0, 360, 90):
+		var ray := Vector2.from_angle(deg_to_rad(angle + 30))
+		dummy.draw_line(center + ray * 48, center + ray * (68 + 36 * (1 - impact)), Color("#ffdf86", impact), 5, true)
 
 
 func _label(point: Vector2, label: String, color: Color, size := 13) -> void:

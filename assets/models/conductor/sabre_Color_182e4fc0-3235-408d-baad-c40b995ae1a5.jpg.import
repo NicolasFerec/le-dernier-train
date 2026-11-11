@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bvd4lf0gm3xhl"
-path="res://.godot/imported/walnut_floor.webp-90e9e1c2b5c81a34059b9fe6553df5c5.ctex"
+uid="uid://pxxj3hw05fd"
+path="res://.godot/imported/sabre_Color_182e4fc0-3235-408d-baad-c40b995ae1a5.jpg-ef14fb98018f957a82cd58622f753309.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "fd41d46a862c93a0439542952e441f86"
 }
 
 [deps]
 
-source_file="res://arena/train/walnut_floor.webp"
-dest_files=["res://.godot/imported/walnut_floor.webp-90e9e1c2b5c81a34059b9fe6553df5c5.ctex"]
+source_file="res://assets/models/conductor/sabre_Color_182e4fc0-3235-408d-baad-c40b995ae1a5.jpg"
+dest_files=["res://.godot/imported/sabre_Color_182e4fc0-3235-408d-baad-c40b995ae1a5.jpg-ef14fb98018f957a82cd58622f753309.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
