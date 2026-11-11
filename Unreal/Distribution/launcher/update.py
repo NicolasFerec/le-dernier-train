@@ -20,8 +20,6 @@ from pathlib import Path, PureWindowsPath
 
 PRODUCT = 'Le-Dernier-Train-Unreal'
 DEFAULT_REPO = 'NicolasFerec/le-dernier-train'
-DEV_TAG = 'unreal-dev'
-CHANNELS = ('stable', 'dev')
 PLATFORMS = ('linux', 'windows')
 ENTRIES = {
     'linux': Path('LeDernierTrain.sh'),
@@ -31,63 +29,44 @@ MAX_ASSET = 2 * 1024**3 - 1
 MAX_EXTRACTED = 12 * 1024**3
 REPO = re.compile(r'[A-Za-z0-9-]+/[A-Za-z0-9_.-]+\Z')
 HASH = re.compile(r'[a-f0-9]{64}\Z')
-VERSION = {
-    'stable': re.compile(r'v(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\Z'),
-    'dev': re.compile(r'(0|[1-9]\d{0,14})\.([1-9]\d{0,5})\Z'),
-}
+VERSION = re.compile(r'v(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\Z')
 
 
 @dataclass(frozen=True)
 class Asset:
-    channel: str
     version: str
     digest: str
     size: int
     url: str
 
 
-def asset_name(channel, version, platform):
-    if channel not in CHANNELS or not VERSION[channel].fullmatch(version) or platform not in PLATFORMS:
+def asset_name(version, platform):
+    if not VERSION.fullmatch(version) or platform not in PLATFORMS:
         raise ValueError('Invalid release identity')
-    return f'{PRODUCT}-{channel}-{version}-{platform}-x86_64.zip'
+    return f'{PRODUCT}-stable-{version}-{platform}-x86_64.zip'
 
 
-def version_key(channel, version):
-    return tuple(map(int, VERSION[channel].fullmatch(version).groups()))
+def version_key(version):
+    return tuple(map(int, VERSION.fullmatch(version).groups()))
 
 
-def select_asset(release, repo, channel, platform):
-    """Choose the newest uploaded archive for this installation’s platform."""
-    if not REPO.fullmatch(repo) or channel not in CHANNELS or platform not in PLATFORMS:
+def select_asset(release, repo, platform):
+    if not REPO.fullmatch(repo) or platform not in PLATFORMS:
         raise ValueError('Invalid update feed')
+    if release.get('draft') or release.get('prerelease'):
+        raise ValueError('Release is not published as stable')
     tag = release.get('tag_name', '')
-    if release.get('draft') or bool(release.get('prerelease')) != (channel == 'dev'):
-        raise ValueError('Release is not published on this channel')
-    if (channel == 'dev' and tag != DEV_TAG) or (channel == 'stable' and not VERSION[channel].fullmatch(tag)):
-        raise ValueError('Unexpected release tag')
-    builds = {}
-    prefix = f'{PRODUCT}-{channel}-'
+    name = asset_name(tag, platform)
     for entry in release.get('assets', []):
-        name = entry.get('name', '')
+        if entry.get('name') != name or entry.get('state') != 'uploaded':
+            continue
         digest = entry.get('digest') or ''
         size = entry.get('size')
-        if (not name.startswith(prefix) or entry.get('state') != 'uploaded'
-                or not digest.startswith('sha256:') or not HASH.fullmatch(digest[7:])
-                or type(size) is not int or not 0 < size <= MAX_ASSET):
-            continue
-        for system in PLATFORMS:
-            suffix = f'-{system}-x86_64.zip'
-            if not name.endswith(suffix):
-                continue
-            version = name[len(prefix):-len(suffix)]
-            if VERSION[channel].fullmatch(version) and (channel == 'dev' or version == tag):
-                url = f'https://github.com/{repo}/releases/download/{tag}/{name}'
-                builds.setdefault(version, {})[system] = Asset(channel, version, digest[7:], size, url)
-    available = [version for version, assets in builds.items() if platform in assets]
-    if not available:
-        raise ValueError('No build for this platform on this channel')
-    version = max(available, key=lambda item: version_key(channel, item))
-    return builds[version][platform]
+        if (digest.startswith('sha256:') and HASH.fullmatch(digest[7:])
+                and type(size) is int and 0 < size <= MAX_ASSET):
+            url = f'https://github.com/{repo}/releases/download/{tag}/{name}'
+            return Asset(tag, digest[7:], size, url)
+    raise ValueError('No stable build for this platform')
 
 
 class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
@@ -100,16 +79,15 @@ class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
 HTTP = urllib.request.build_opener(HTTPSRedirect())
 
 
-def fetch_asset(repo, channel, platform):
+def fetch_asset(repo, platform):
     if not REPO.fullmatch(repo):
         raise ValueError('Invalid GitHub repository')
-    route = f'tags/{DEV_TAG}' if channel == 'dev' else 'latest'
     request = urllib.request.Request(
-        f'https://api.github.com/repos/{repo}/releases/{route}',
+        f'https://api.github.com/repos/{repo}/releases/latest',
         headers={'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache', 'User-Agent': PRODUCT},
     )
     with HTTP.open(request, timeout=5) as response:
-        return select_asset(json.loads(response.read(4 * 1024**2)), repo, channel, platform)
+        return select_asset(json.loads(response.read(4 * 1024**2)), repo, platform)
 
 
 def download(asset, output, progress):
@@ -179,15 +157,15 @@ class Installation:
         self.root = root
         self.platform = platform
 
-    def location(self, channel, version, digest):
-        return self.root / 'versions' / channel / f'{version}-{digest}'
+    def location(self, version, digest):
+        return self.root / 'versions' / 'stable' / f'{version}-{digest}'
 
-    def current(self, channel):
+    def current(self):
         try:
-            data = json.loads((self.root / f'current-{channel}.json').read_text(encoding='utf-8'))
+            data = json.loads((self.root / 'current-stable.json').read_text(encoding='utf-8'))
             version, digest = data['version'], data['sha256']
-            if VERSION[channel].fullmatch(version) and HASH.fullmatch(digest):
-                directory = self.location(channel, version, digest)
+            if VERSION.fullmatch(version) and HASH.fullmatch(digest):
+                directory = self.location(version, digest)
                 if (directory / ENTRIES[self.platform]).is_file():
                     return version, digest, directory
         except (OSError, ValueError, KeyError, TypeError):
@@ -195,8 +173,8 @@ class Installation:
         return None
 
     def install(self, asset, progress, local_archive=None):
-        previous = self.current(asset.channel)
-        destination = self.location(asset.channel, asset.version, asset.digest)
+        previous = self.current()
+        destination = self.location(asset.version, asset.digest)
         # Only the process holding the installation lock can stage or activate a build.
         staging = self.root / 'incoming'
         if staging.exists():
@@ -226,7 +204,7 @@ class Installation:
                 if not (destination / ENTRIES[self.platform]).is_file():
                     shutil.rmtree(destination)
                     extracted.replace(destination)
-            atomic_write(self.root / f'current-{asset.channel}.json', json.dumps({
+            atomic_write(self.root / 'current-stable.json', json.dumps({
                 'version': asset.version, 'sha256': asset.digest,
             }))
         finally:
@@ -242,9 +220,9 @@ class Installation:
             data = json.loads((self.root / 'bootstrap.json').read_text(encoding='utf-8'))
             channel, version = data['channel'], data['version']
             size, digest = data['size'], data['sha256']
-            if (channel in CHANNELS and VERSION[channel].fullmatch(version) and data['platform'] == self.platform
+            if (channel == 'stable' and VERSION.fullmatch(version) and data['platform'] == self.platform
                     and type(size) is int and 0 < size <= MAX_ASSET and HASH.fullmatch(digest)):
-                return Asset(channel, version, digest, size, '')
+                return Asset(version, digest, size, '')
         except (OSError, ValueError, KeyError, TypeError):
             pass
         return None
@@ -253,19 +231,19 @@ class Installation:
         if not asset:
             return
         archive = self.root / 'bootstrap.zip'
-        installed = self.current(asset.channel)
+        installed = self.current()
         if not installed or (installed[:2] != (asset.version, asset.digest)
-                             and version_key(asset.channel, installed[0]) <= version_key(asset.channel, asset.version)):
+                             and version_key(installed[0]) <= version_key(asset.version)):
             progress('install', None)
             self.install(asset, progress, local_archive=archive)
         archive.unlink(missing_ok=True)
         (self.root / 'bootstrap.json').unlink(missing_ok=True)
 
-    def update(self, repo, channel, progress):
-        local = self.current(channel)
+    def update(self, repo, progress):
+        local = self.current()
         progress('check', None)
-        asset = fetch_asset(repo, channel, self.platform)
-        if local and (version_key(channel, asset.version) < version_key(channel, local[0])
+        asset = fetch_asset(repo, self.platform)
+        if local and (version_key(asset.version) < version_key(local[0])
                       or (asset.version, asset.digest) == local[:2]):
             return local[2]
         return self.install(asset, progress)

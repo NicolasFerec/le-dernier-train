@@ -138,17 +138,13 @@ def verify_startup(staged, settings):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--engine', type=Path, default=os.environ.get('UNREAL_ROOT'))
-    parser.add_argument('--channel', choices=('stable', 'dev'), required=True)
-    parser.add_argument('--version', required=True, help='Stable: vX.Y.Z. Dev: CI run ID and attempt, e.g. 12345.1.')
+    parser.add_argument('--version', required=True, help='Release tag, e.g. v0.2.0.')
     parser.add_argument('--output', type=Path, default=PROJECT / 'Saved/Distribution/Packages')
     args = parser.parse_args()
     if not args.engine:
         parser.error('Set UNREAL_ROOT or pass --engine')
-    filename = asset_name(args.channel, args.version, PLATFORM)
-    base = re.search(r'(?m)^ProjectVersion=([\d.]+)', (PROJECT / 'Config/DefaultGame.ini').read_text(encoding='utf-8'))
-    if not base:
-        parser.error('ProjectVersion must start with a numeric version')
-    project_version = args.version[1:] if args.channel == 'stable' else f'{base[1]}-dev.{args.version}'
+    filename = asset_name(args.version, PLATFORM)
+    project_version = args.version[1:]
     work = PROJECT / 'Saved/Distribution'
     work.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=work, prefix='cook-') as folder:

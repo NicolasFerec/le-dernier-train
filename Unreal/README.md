@@ -37,16 +37,16 @@ sh ./Le-Dernier-Train-Setup-Linux-x86_64.run
 
 L’installateur Linux crée une entrée standard dans le menu des applications avec la catégorie **Jeux**. KDE la classe sous Jeux, et GNOME peut la retrouver dans sa grille ou sa recherche. Pour désinstaller le jeu, lance `${XDG_DATA_HOME:-$HOME/.local/share}/le-dernier-train-unreal/uninstall.sh`. Les deux installateurs travaillent dans les dossiers de l’utilisateur et la désinstallation conserve ses sauvegardes.
 
-Le lanceur affiche la recherche de mise à jour, le téléchargement et l’installation, puis démarre le jeu. Si GitHub est indisponible ou si le téléchargement échoue, il affiche un message bref et ouvre la version installée. Stable suit la dernière release GitHub. Dev suit la préversion `unreal-dev`. Choisis le canal dans **Réglages → Général**. Le choix s’applique au prochain lancement. Le raccourci Linux propose aussi une action **Canal de mise à jour**, disponible sur les deux plateformes avec `LeDernierTrainLauncher --settings`.
+Le lanceur suit la dernière release stable de GitHub. Il affiche la recherche de mise à jour, le téléchargement et l’installation, puis démarre le jeu. Si GitHub est indisponible ou si le téléchargement échoue, il affiche un message bref et ouvre la version installée. Pour tester en local, utilise `./Scripts/play.sh` ou `./Scripts/local-coop.sh 2` depuis le projet Unreal.
 
-Les deux canaux ont chacun leur installation et partagent le profil de jeu. Le profil et `launcher.log` se trouvent sous `${XDG_STATE_HOME:-$HOME/.local/state}/le-dernier-train-unreal` sur Linux et `%LOCALAPPDATA%\LeDernierTrainUnreal` sur Windows.
+Le profil et `launcher.log` se trouvent sous `${XDG_STATE_HOME:-$HOME/.local/state}/le-dernier-train-unreal` sur Linux et `%LOCALAPPDATA%\LeDernierTrainUnreal` sur Windows.
 
 ### Construire les paquets
 
-Sur chaque OS, utilise Unreal Engine 5.8.4 et Python 3.11 ou plus récent. Pour l’installateur Windows, ajoute `makensis` (NSIS) au `PATH`. Windows a également besoin de Visual Studio 2022, de son SDK Windows et des DLL redistribuables x64. Linux utilise le SDK Clang d’Epic. Le build local de l’installateur Linux doit se faire sur une distribution compatible avec les machines visées. Le workflow utilise Ubuntu 24.04 pour le lanceur.
+Sur chaque OS, utilise Unreal Engine 5.8.4 et Python 3.11 ou plus récent. Pour l’installateur Windows, ajoute `makensis` (NSIS) au `PATH`. Windows a également besoin de Visual Studio 2022, de son SDK Windows et des DLL redistribuables x64. Linux utilise le SDK Clang d’Epic. Le build local de l’installateur Linux doit se faire sur une distribution compatible avec les machines visées.
 
 ```sh
-python Distribution/package_game.py --engine /chemin/vers/Unreal --channel stable --version v0.2.0
+python Distribution/package_game.py --engine /chemin/vers/Unreal --version v0.2.0
 python -m pip install -r Distribution/requirements.txt
 python Distribution/package_installer.py --game Saved/Distribution/Packages/Le-Dernier-Train-Unreal-stable-v0.2.0-linux-x86_64.zip
 ```
@@ -55,10 +55,7 @@ Sur Windows, passe le chemin d’Unreal sous Windows et utilise l’archive dont
 
 ### Publier les paquets
 
-Construis localement depuis le commit de `main` à distribuer. Les fichiers à publier sont le ZIP du jeu et l’installateur de chaque plateforme construite. Le lanceur attend un ZIP Unreal correspondant à son canal et à sa plateforme.
-
-- **Stable** suit la dernière release GitHub stable. Crée un tag `vX.Y.Z` sur le commit validé, prépare la release en brouillon avec les notes GitHub générées depuis la stable précédente, puis publie après avoir vérifié les fichiers joints.
-- **Dev** utilise la préversion `unreal-dev`. Publie une archive versionnée et l’installateur correspondant pour chaque plateforme construite.
+Construis localement depuis le commit de `main` à distribuer. Prépare une release stable avec le tag `vX.Y.Z`, les notes GitHub générées depuis la stable précédente, le ZIP et l’installateur de chaque plateforme construite. Vérifie les fichiers joints avant la publication.
 
 Utilise `--repository propriétaire/dépôt` lors de la construction de l’installateur pour sélectionner le dépôt GitHub qui héberge ces releases.
 
