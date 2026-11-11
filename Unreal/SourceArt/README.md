@@ -1,0 +1,7 @@
+# Sources du prototype Unreal
+
+- Conducteur, sabre et marteau : modèles Tripo v3.1 issus des essais Layer conservés dans le projet Godot. [Conducteur](https://layer.ai/ferecium-studio/sessions/213784c1-8437-4e98-845c-2c4bad7ac55e), [sabre](https://layer.ai/ferecium-studio/sessions/4749bbd8-c97a-40ce-ab3b-712d6f72f841), [marteau](https://layer.ai/ferecium-studio/sessions/862cc3bd-04c8-42b5-b891-eef34eedc0ec).
+- Automate : modèle Tripo et rig Uthana, créés à partir de l’illustration de référence. [Session Layer](https://layer.ai/ferecium-studio/sessions/47ff9214-9076-431d-b3fe-940e2f2233bf). Les GLB source et articulé sont conservés séparément.
+- Animations : éditions Standard CC0 de [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html) et [Universal Animation Library 2](https://quaternius.itch.io/universal-animation-library-2) de Quaternius. Le dossier de chaque source contient sa licence. Les animations ont été retargetées par Unreal sur les deux squelettes.
+- Mobilier, machinerie et mannequins : modèles originaux, éditables dans Blender. `Scripts/build_props.py` décrit les assemblages, matières et détails. Les FBX voisins sont les exports pour Unreal.
+- Illustrations, portraits, textures de sol et sons : repris des assets du projet Godot. Pictogrammes de commandes : Kenney Input Prompts, CC0, voir `InputPrompts/LICENSE.txt`.

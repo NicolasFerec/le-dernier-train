@@ -1,5 +1,9 @@
 # Le Dernier Train
 
+Le chantier actif est le [prototype Unreal](Unreal/README.md). La [vision du jeu](VISION.md) décrit la boucle cible, la progression et la direction artistique.
+
+## Prototype Godot
+
 Prototype d’action 2D en GDScript pour Godot 4.7.2 Standard.
 Voir la [vision du jeu](VISION.md) pour la boucle cible, la progression et les priorités du prototype.
 
