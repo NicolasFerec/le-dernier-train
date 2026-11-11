@@ -27,6 +27,7 @@ namespace
         bool bMotionStarted=false;
         TWeakObjectPtr<ATrainEnemy> Enemy;
         float Health=100;
+        double DodgeStartZ=0,DodgePeakZ=0;
         void Next() { ++Step;Frame=0;bMotionStarted=false;Since=FPlatformTime::Seconds(); }
         void Pose(ATrainPawn* Pawn,FVector Location,float Yaw=0)
         {
@@ -87,16 +88,23 @@ namespace
             {
                 if (!bMotionStarted)
                 {
-                    Pose(Pawn,FVector(1180,-230,95));
+                    Pose(Pawn,FVector(820,-230,95));
+                    DodgeStartZ=Pawn->GetActorLocation().Z;
+                    DodgePeakZ=DodgeStartZ;
                     bMotionStarted=ASC->TryActivateAbilityByClass(UTrainDash::StaticClass());
                 }
-                CaptureMotion(TEXT("conducteur-esquive"),Time,.04,.07,5);
+                const FVector Location=Pawn->GetActorLocation();
+                DodgePeakZ=FMath::Max(DodgePeakZ,Location.Z);
+                CaptureMotion(TEXT("conducteur-esquive"),Time,.04,.055,6);
                 if (Time>.75)
                 {
-                    const double X = Pawn->GetActorLocation().X;
-                    if (X < 1230 || X > 1290)
+                    const double Distance=Location.X-820;
+                    const double Rise=DodgePeakZ-DodgeStartZ;
+                    const bool Landed=Pawn->GetCharacterMovement()->IsMovingOnGround();
+                    UE_LOG(LogTemp, Display, TEXT("Dodge smoke: %.1f cm forward, %.1f cm up, landed=%d"),Distance,Rise,Landed);
+                    if (!Landed || Distance < 150 || Distance > 235 || Rise < 12 || Rise > 40)
                     {
-                        UE_LOG(LogTemp, Error, TEXT("Dash did not move and stop at the practice target (X=%.1f)"), X);
+                        UE_LOG(LogTemp, Error, TEXT("Dodge did not make a short horizontal leap"));
                         FPlatformMisc::RequestExitWithStatus(false,1);
                         return false;
                     }

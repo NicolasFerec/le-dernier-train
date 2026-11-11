@@ -1,6 +1,7 @@
 """Run with Blender in background. Preserve Layer sources; export engine-ready FBX."""
 from pathlib import Path
 import math
+import sys
 import bpy
 from mathutils import Matrix, Vector
 
@@ -31,6 +32,54 @@ def export(path):
         add_leaf_bones=False, bake_anim=False, axis_forward='-Y', axis_up='Z',
         apply_unit_scale=True, apply_scale_options='FBX_SCALE_ALL', mesh_smooth_type='FACE', path_mode='AUTO', embed_textures=False)
 
+def fit_automaton_bones(armature):
+    """Fix oversized GLTF display bones without changing the bind pose or weights."""
+    bpy.context.view_layer.objects.active = armature
+    bpy.ops.object.mode_set(mode='EDIT')
+    bones = armature.data.edit_bones
+    # Every joint keeps its head and local orientation. Detach connected
+    # endpoints before resizing so changing a tail cannot move a child.
+    for bone in bones:
+        bone.use_connect = False
+    for bone in bones:
+        direction = (bone.tail - bone.head).normalized()
+        children = [child.head - bone.head for child in bone.children]
+        if children:
+            segment = max(children, key=lambda child: direction.dot(child.normalized()))
+            length = segment.length
+        else:
+            length = (bone.head - bone.parent.head).length * .55
+        bone.length = max(.01, length)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def prepare_automaton():
+    clear()
+    bpy.ops.import_scene.gltf(filepath=str(ROOT/'SourceArt/Characters/Automaton/automaton.glb'))
+    meshes=[o for o in bpy.context.scene.objects if o.type=='MESH' and any(m.type=='ARMATURE' for m in o.modifiers)]
+    points=[o.matrix_world@Vector(p) for o in meshes for p in o.bound_box]
+    height=max(p.z for p in points)-min(p.z for p in points)
+    low=min(p.z for p in points)
+    xf=Matrix.Scale(2.1/height,4) @ Matrix.Translation((0,0,-low))
+    armature = next(o for o in bpy.context.scene.objects if o.type == 'ARMATURE')
+    fit_automaton_bones(armature)
+    transforms={o:o.matrix_world.copy() for o in [armature, *meshes]}
+    for o,world in transforms.items(): o.matrix_world=xf@world
+    bpy.context.view_layer.update()
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in transforms:o.select_set(True)
+    bpy.context.view_layer.objects.active=next(o for o in transforms if o.type=='ARMATURE')
+    bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
+    export(ROOT/'SourceArt/Characters/Automaton/SK_Automaton.fbx')
+    bpy.context.preferences.filepaths.save_version = 0
+    bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'SourceArt/Characters/Automaton/automaton.blend'))
+
+
+if '--automaton-only' in sys.argv:
+    prepare_automaton()
+    print('TRAIN_MODELS_PREPARED')
+    sys.exit(0)
+
 clear()
 bpy.ops.import_scene.gltf(filepath=str(ROOT/'SourceArt/Characters/Conductor/conductor.glb'))
 # Tripo's source is one metre high and faces -X. Normalise to 1.8 m, facing -Y.
@@ -46,22 +95,7 @@ bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 export(ROOT/'SourceArt/Characters/Conductor/SK_Conductor.fbx')
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'SourceArt/Characters/Conductor/conductor.blend'))
 
-clear()
-bpy.ops.import_scene.gltf(filepath=str(ROOT/'SourceArt/Characters/Automaton/automaton.glb'))
-meshes=[o for o in bpy.context.scene.objects if o.type=='MESH' and any(m.type=='ARMATURE' for m in o.modifiers)]
-points=[o.matrix_world@Vector(p) for o in meshes for p in o.bound_box]
-height=max(p.z for p in points)-min(p.z for p in points)
-low=min(p.z for p in points)
-xf=Matrix.Scale(2.1/height,4) @ Matrix.Translation((0,0,-low))
-transforms={o:o.matrix_world.copy() for o in bpy.context.scene.objects if o.type in {'MESH','ARMATURE'}}
-for o,world in transforms.items(): o.matrix_world=xf@world
-bpy.context.view_layer.update()
-bpy.ops.object.select_all(action='DESELECT')
-for o in transforms:o.select_set(True)
-bpy.context.view_layer.objects.active=next(o for o in transforms if o.type=='ARMATURE')
-bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
-export(ROOT/'SourceArt/Characters/Automaton/SK_Automaton.fbx')
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'SourceArt/Characters/Automaton/automaton.blend'))
+prepare_automaton()
 
 for name in ['sabre','hammer']:
     clear(); bpy.ops.import_scene.gltf(filepath=str(ROOT/f'SourceArt/Weapons/{name}.glb'))

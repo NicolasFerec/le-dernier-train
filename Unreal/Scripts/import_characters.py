@@ -64,62 +64,81 @@ def rig(mesh,path,name):
     AS.save_loaded_asset(r);return r
 
 
-def retarget(source,target,anims,label):
+def retarget(source,target,label):
     source_path=source.get_path_name().rsplit('/',1)[0];target_path=target.get_path_name().rsplit('/',1)[0]
     src=rig(source,source_path,'IK_'+source.get_name());dst=rig(target,target_path,'IK_'+target.get_name())
     name='RTG_'+label;path=target_path+'/'+name
     rt=ue.load_asset(path) if AS.does_asset_exist(path) else AT.create_asset(name,target_path,ue.IKRetargeter,ue.IKRetargetFactory())
     c=ue.IKRetargeterController.get_controller(rt);c.set_ik_rig(ue.RetargetSourceOrTarget.SOURCE,src);c.set_ik_rig(ue.RetargetSourceOrTarget.TARGET,dst)
-    c.add_default_ops();c.auto_map_chains(ue.AutoMapChainType.FUZZY,True);c.auto_align_all_bones(ue.RetargetSourceOrTarget.TARGET)
+    c.remove_all_ops();c.add_default_ops();c.auto_map_chains(ue.AutoMapChainType.EXACT,True);c.auto_align_all_bones(ue.RetargetSourceOrTarget.TARGET)
     AS.save_loaded_asset(rt)
-    inputs=ue.IKRetargetBatchOperationInputs();inputs.assets_to_retarget=[ue.EditorAssetLibrary.find_asset_data(a.get_path_name()) for a in anims]
-    inputs.source_mesh=source;inputs.target_mesh=target;inputs.ik_retarget_asset=rt
-    inputs.target_path=target_path+'/Animations';inputs.overwrite_existing_files=True
-    out=ue.IKRetargetBatchOperation.run_batch_retarget(inputs)
-    print('RETARGETED',label,len(out));return target_path+'/Animations'
+    return rt
+
+
+def bake_clip(source, target, retargeter, source_animation, target_path, name):
+    inputs = ue.IKRetargetBatchOperationInputs()
+    inputs.assets_to_retarget = [ue.EditorAssetLibrary.find_asset_data(source_animation)]
+    inputs.source_mesh = source
+    inputs.target_mesh = target
+    inputs.ik_retarget_asset = retargeter
+    inputs.target_path = target_path
+    inputs.overwrite_existing_files = True
+    inputs.include_referenced_assets = False
+    inputs.search = source_animation.rsplit('.', 1)[-1]
+    inputs.replace = name
+    outputs = ue.IKRetargetBatchOperation.run_batch_retarget(inputs)
+    if len(outputs) != 1 or str(outputs[0].asset_name) != name:
+        raise RuntimeError(f'Unexpected output baking {name}: {outputs}')
+    clip = outputs[0].get_asset()
+    clip.set_editor_property('force_root_lock', True)
+    clip.set_editor_property('root_motion_root_lock', ue.RootMotionRootLock.REF_POSE)
+    clip.set_editor_property('enable_root_motion', False)
+    return clip
+
 
 def main():
     import sys
     sys.path.insert(0,str(Path(__file__).resolve().parent))
     from retarget_conductor import bake
 
+    cmdline = ue.SystemLibrary.get_command_line()
+    if 'TrainAutomatonOnly' in cmdline:
+        import_automaton()
+        return
+
     target=fbx('SourceArt/Characters/Conductor/SK_Conductor.fbx','/Game/Characters/Conductor','SK_Conductor',True)
-    cmdline=ue.SystemLibrary.get_command_line()
     if 'TrainReimport' in cmdline or not AS.does_asset_exist('/Game/Characters/Conductor/M_Conductor'):
         surface(target,'SourceArt/Characters/Conductor/conductor_color.jpg','Conductor')
-    bake(target,fbx,rig)
-    if 'TrainConductorOnly' in cmdline:
+    bake(target,fbx,rig,bake_clip,only_dodge='TrainDodgeOnly' in cmdline)
+    if 'TrainConductorOnly' in cmdline or 'TrainDodgeOnly' in cmdline:
         return
-    import_automaton_and_props()
-
-
-def import_automaton_and_props():
-    source=fbx('SourceArt/Animations/Quaternius/AL_Standard.fbx','/Game/Characters/AnimationSource','SK_Source',True,True)
-    source2=fbx('SourceArt/Animations/Quaternius2/UAL2_Standard.fbx','/Game/Characters/AnimationSource2','SK_Source2',True,True)
-    enemy=fbx('SourceArt/Characters/Automaton/SK_Automaton.fbx','/Game/Characters/Automaton','SK_Automaton',True)
-    surface(enemy,'SourceArt/Characters/Automaton/automaton_color.jpg','Automaton')
+    import_automaton()
     for name in ['sabre','hammer']:
         mesh=fbx('SourceArt/Weapons/'+name+'.fbx','/Game/Weapons',name)
         surface(mesh,'SourceArt/Weapons/'+name+'_color.jpg',name)
 
-    clips1={'Idle':'Sword_Idle','Run':'Jog_Fwd_Loop','Walk':'Walk_Loop','Dodge':'Roll','Hit':'Hit_Chest','Death':'Death01','Attack':'Punch_Cross','HammerLight':'Sword_Attack'}
-    clips2={'Light':'Sword_Regular_A','Heavy':'Sword_Regular_C','HammerHeavy':'TreeChopping_Loop'}
-    for src,clips in [(source,clips1),(source2,clips2)]:
-        folder=src.get_path_name().rsplit('/',1)[0]
-        anims=[ue.load_asset(p) for p in AS.list_assets(folder,recursive=True) if isinstance(ue.load_asset(p),ue.AnimSequence)]
-        selected={name:next(a for a in anims if a.get_name().endswith('_'+suffix)) for name,suffix in clips.items()}
-        out=retarget(src,enemy,list(selected.values()),src.get_name()+'_'+enemy.get_name())
-        for name,srcanim in selected.items():
-            dest=out+'/'+name
-            if AS.does_asset_exist(dest):AS.delete_asset(dest)
-            asset=AS.duplicate_asset(out+'/'+srcanim.get_name(),dest)
-            asset.set_editor_property('force_root_lock',True)
-            asset.set_editor_property('root_motion_root_lock',ue.RootMotionRootLock.REF_POSE)
-            asset.set_editor_property('enable_root_motion',False)
-            AS.save_loaded_asset(asset)
     texture(ROOT/'SourceArt/Portraits/Conductor.png','/Game/UI/Portraits','Conductor')
     AS.save_directory('/Game/Characters',recursive=True)
     print('TRAIN_CHARACTERS_IMPORTED')
+
+
+def import_automaton():
+    source_path = '/Game/Characters/AnimationSource'
+    target_path = '/Game/Characters/Automaton'
+    source = fbx('SourceArt/Animations/Quaternius/AL_Standard.fbx', source_path, 'SK_Source', True, True)
+    enemy = fbx('SourceArt/Characters/Automaton/SK_Automaton.fbx', target_path, 'SK_Automaton', True)
+    if 'TrainReimport' in ue.SystemLibrary.get_command_line() or not AS.does_asset_exist(target_path + '/M_Automaton'):
+        surface(enemy, 'SourceArt/Characters/Automaton/automaton_color.jpg', 'Automaton')
+    rt = retarget(source, enemy, 'SK_Source_SK_Automaton')
+    # The unarmed stance matches the automaton's punch and leaves its gauntlets at its sides.
+    clips = {'Idle': 'Idle_Loop', 'Walk': 'Walk_Loop', 'Attack': 'Punch_Cross',
+             'Hit': 'Hit_Chest', 'Death': 'Death01'}
+    assets = AS.list_assets(source_path, recursive=False)
+    for name, suffix in clips.items():
+        src = next(path for path in assets if path.rsplit('.', 1)[-1] == 'SK_SourceRig_' + suffix)
+        clip = bake_clip(source, enemy, rt, src, target_path + '/Animations', name)
+        AS.save_loaded_asset(clip)
+    print('TRAIN_AUTOMATON_BAKED')
 
 
 if __name__=='__main__':

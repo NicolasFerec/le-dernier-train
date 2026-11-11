@@ -36,7 +36,7 @@ void FTrainAnimProxy::PreUpdate(UAnimInstance* Instance,float DeltaSeconds)
     const bool Dead=PS && PS->Health<=0;
     Idle.SetSequence(Dead?Anim->Death:Anim->Idle);Idle.SetLoopAnimation(!Dead);Run.SetSequence(Anim->Run);
     if (Dead && Anim->Death) Idle.SetAccumulatedTime(FMath::Max(0.f,Anim->Death->GetPlayLength()-.01f));
-    Locomotion.Alpha=FMath::FInterpTo(Locomotion.Alpha,!Dead&&Speed>8?1.f:0.f,DeltaSeconds,12.f);
+    Locomotion.Alpha=FMath::FInterpTo(Locomotion.Alpha,!Dead&&Speed>8?1.f:0.f,DeltaSeconds,18.f);
     // The conductor's clip plants the foot at about 430 cm/s at its original rate.
     Run.SetPlayRate(FMath::Clamp(Speed/(Pawn&&Pawn->IsA<ATrainEnemy>() ? 115.f:430.f),.65f,1.4f));
 }

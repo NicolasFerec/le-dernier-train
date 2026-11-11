@@ -1,4 +1,5 @@
 #include "TrainNetwork.h"
+#include "TrainDash.h"
 #include "../character/TrainAnimInstance.h"
 #include "../progression/TrainProfile.h"
 #include "../ui/TrainDamageNumber.h"
@@ -175,6 +176,8 @@ ATrainEnemy::ATrainEnemy()
     bReplicates = true; SetReplicateMovement(true);
     GetCapsuleComponent()->InitCapsuleSize(48,105);
     GetMesh()->SetRelativeLocation(FVector(0,0,-105));
+    // The automaton's source skeleton faces +Y. Character Movement and the hit arc face +X.
+    GetMesh()->SetRelativeRotation(FRotator(0,-90,0));
     GetMesh()->SetSkeletalMesh(LoadObject<USkeletalMesh>(nullptr,TEXT("/Game/Characters/Automaton/SK_Automaton.SK_Automaton")));
     GetMesh()->SetAnimInstanceClass(UTrainAnimInstance::StaticClass());
     GetMesh()->SetMaterial(0,LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Characters/Automaton/M_Automaton.M_Automaton")));
@@ -211,7 +214,7 @@ void ATrainEnemy::Tick(float DeltaSeconds)
         if (Distance>FMath::Square(155.0))
         {
             if (RepathAfter<=0)
-                if (auto* AI=Cast<AAIController>(GetController())) { AI->MoveToActor(Target,125);RepathAfter=.35f; }
+                if (auto* AI=Cast<AAIController>(GetController())) { AI->MoveToActor(Target,100,false);RepathAfter=.35f; }
         }
         else if (AttackCooldown<=0)
         {
@@ -319,7 +322,7 @@ TSharedRef<SWidget> UTrainHUD::RebuildWidget()
                                 +SVerticalBox::Slot().AutoHeight().Padding(0,4,0,0)
                                     [SNew(SBox).HeightOverride(5).Visibility(Local?EVisibility::HitTestInvisible:EVisibility::Collapsed)
                                         [SNew(SProgressBar).Style(&Bars).FillColorAndOpacity(FLinearColor(.35,.78,.76))
-                                            .Percent_Lambda([this,Member,Slot]()->TOptional<float>{auto* PS=Member(Slot);auto* GS=GetWorld()->GetGameState<ATrainGameState>();return PS&&GS?FMath::Clamp(float(1-(PS->DashReadyAt-GS->GetServerWorldTimeSeconds())/.65),0.f,1.f):1.f;})]]
+                                            .Percent_Lambda([this,Member,Slot]()->TOptional<float>{auto* PS=Member(Slot);auto* GS=GetWorld()->GetGameState<ATrainGameState>();return PS&&GS?FMath::Clamp(float(1-(PS->DashReadyAt-GS->GetServerWorldTimeSeconds())/UTrainDash::CooldownDuration),0.f,1.f):1.f;})]]
                                 +SVerticalBox::Slot().AutoHeight().Padding(0,4,0,0)
                                     [SNew(STextBlock).ColorAndOpacity(FLinearColor(.8,.77,.7)).Font(FCoreStyle::GetDefaultFontStyle("Regular",Local?11:9))
                                         .Text_Lambda([Member,Slot](){auto* PS=Member(Slot);return PS?FText::FromString(FString::Printf(TEXT("%.0f / %.0f"),PS->Health,PS->MaxHealth)):FText::GetEmpty();})]]]]];
