@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dg5c6b8bfx5rb"
-path="res://.godot/imported/steel_tread.webp-6c01d1384e5a0ea213249790350136a9.ctex"
+uid="uid://d4ll8ama85ecr"
+path="res://.godot/imported/lectern.webp-013e05e52ac37a0a3ec814e891ab368e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arena/train/steel_tread.webp"
-dest_files=["res://.godot/imported/steel_tread.webp-6c01d1384e5a0ea213249790350136a9.ctex"]
+source_file="res://arena/train/lectern.webp"
+dest_files=["res://.godot/imported/lectern.webp-013e05e52ac37a0a3ec814e891ab368e.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

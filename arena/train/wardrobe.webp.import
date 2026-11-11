@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ldlu1s4berop"
-path="res://.godot/imported/workshop_wall.webp-3140d47bcb6cc821400b839a7a87a358.ctex"
+uid="uid://unh3rr462g3s"
+path="res://.godot/imported/wardrobe.webp-7ffcb75463524e8770d87e7dca666583.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arena/train/workshop_wall.webp"
-dest_files=["res://.godot/imported/workshop_wall.webp-3140d47bcb6cc821400b839a7a87a358.ctex"]
+source_file="res://arena/train/wardrobe.webp"
+dest_files=["res://.godot/imported/wardrobe.webp-7ffcb75463524e8770d87e7dca666583.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

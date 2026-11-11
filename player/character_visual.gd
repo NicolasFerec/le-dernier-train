@@ -3,6 +3,7 @@ extends Node2D
 const INK := Color("#202630")
 const STEEL := Color("#c3d6d5")
 const BRASS := Color("#e6b379")
+const SHADOW := preload("res://arena/isometric_shadow.tres")
 
 const ConductorVisual := preload("res://player/conductor/visual.gd")
 const EXPERIMENT_PATH := "res://player/conductor/experiment/visual.gd"
@@ -12,9 +13,14 @@ var gait := 0.0
 var breathing := 0.0
 var _conductor := ConductorVisual.new()
 var _experiment: Sprite2D
+var _cast_shadow: Sprite2D
+var _contact_shadow: Sprite2D
 
 
 func _ready() -> void:
+	_cast_shadow = _add_shadow(Vector2(74, 25), Vector2(17, 8), 0.84)
+	_cast_shadow.rotation = 0.38
+	_contact_shadow = _add_shadow(Vector2(36, 16), Vector2(0, 1), 0.92)
 	if actor.try_3d_visual:
 		var candidate: Sprite2D = load(EXPERIMENT_PATH).new()
 		add_child(candidate)
@@ -22,6 +28,19 @@ func _ready() -> void:
 			_experiment = candidate
 		else:
 			candidate.queue_free()
+
+
+func _add_shadow(size: Vector2, center: Vector2, opacity: float) -> Sprite2D:
+	var shadow := Sprite2D.new()
+	shadow.texture = SHADOW
+	shadow.position = center
+	shadow.scale = size / SHADOW.get_size()
+	shadow.modulate.a = opacity
+	shadow.z_as_relative = false
+	# Above the floor and below all props and actors, independent of their depth.
+	shadow.z_index = 1
+	add_child(shadow)
+	return shadow
 
 
 func _process(delta: float) -> void:
@@ -32,6 +51,9 @@ func _process(delta: float) -> void:
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
 	z_index = Isometric.depth(projected.y)
+	var dashing: bool = actor.render_dash_time > 0
+	_cast_shadow.modulate.a = 0.6 if dashing else 0.84
+	_contact_shadow.modulate.a = 0.7 if dashing else 0.92
 	if actor.character == 0:
 		_conductor.update(actor, delta)
 	if _experiment != null:
@@ -75,7 +97,6 @@ func _draw() -> void:
 		rear_hand.x += 22 * width
 
 	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 0.45))
-	draw_circle(Vector2.ZERO, 17, Color("#16191d", 0.55))
 	draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
 	draw_set_transform(Vector2.ZERO)
 	if dashing:
