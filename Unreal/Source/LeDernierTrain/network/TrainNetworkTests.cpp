@@ -41,6 +41,7 @@ namespace
         int32 PlayerID=0;
         int32 EnemyCount=0;
         double PausedTime=0;
+        FString NoticeLanguageToRestore;
         void Next() { ++Phase; Since=FPlatformTime::Seconds(); }
         ATrainPawn* ClientPawn() const
         {
@@ -216,7 +217,12 @@ namespace
                 Host->ServerInteract();
                 Test->TestEqual(TEXT("A fallen host needs a survivor at the exit"), GS->DepartureAt, 0.0);
                 ServerPawn()->SetActorLocation(GS->DeparturePoint+FVector(-150,0,95),false,nullptr,ETeleportType::TeleportPhysics);
+                auto* Settings = UTrainSettings::Get();
+                NoticeLanguageToRestore = Settings->Language;
+                Settings->Language = TEXT("fr");
                 ServerPawn()->ServerInteract();
+                // PIE shares settings across worlds. Change language after send, before client delivery.
+                Settings->Language = TEXT("en");
                 Test->TestEqual(TEXT("A guest cannot start departure for the fallen host"), GS->DepartureAt, 0.0);
                 Host->ServerInteract();
                 Test->TestTrue(TEXT("A fallen host can start the countdown remotely"),GS->DepartureAt>GS->GetServerWorldTimeSeconds()+9);
@@ -224,6 +230,14 @@ namespace
             }
             if (Phase==10)
             {
+                if (!NoticeLanguageToRestore.IsEmpty() && Elapsed > .45)
+                {
+                    const auto* Guest = Cast<ATrainPlayerController>(Client->GetFirstPlayerController());
+                    Test->TestTrue(TEXT("Departure notice uses the language at client delivery"),
+                        Guest && Guest->Notice().ToString() == TEXT("Only the host can start departure"));
+                    UTrainSettings::Get()->Language = MoveTemp(NoticeLanguageToRestore);
+                    NoticeLanguageToRestore.Reset();
+                }
                 if (UGameplayStatics::GetCurrentLevelName(Server.Get())!=TEXT("Fonderie") || UGameplayStatics::GetCurrentLevelName(Client.Get())!=TEXT("Fonderie") || !ClientPawn() || !ClientPawn()->GetPlayerState<ATrainPlayerState>() || !GS || GS->PlayerArray.Num()!=4) return false;
                 const ATrainPlayerState* FallenHost = nullptr;
                 for (const APlayerState* Player : GS->PlayerArray)

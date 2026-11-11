@@ -191,9 +191,11 @@ void UTrainSession::Leave(const FText& Reason)
     {
         UGameplayStatics::SetGamePaused(World, false);
         if (World->GetNetMode() == NM_ListenServer)
+        {
             for (auto It = World->GetPlayerControllerIterator(); It; ++It)
-                if (!It->Get()->IsLocalController()) It->Get()->ClientReturnToMainMenuWithTextReason(
-                    TrainText(TEXT("L’hôte a quitté la session."), TEXT("The host left the session.")));
+                if (auto* Guest = Cast<ATrainPlayerController>(It->Get()); Guest && !Guest->IsLocalController())
+                    Guest->ClientNotice(ETrainNotice::HostLeft);
+        }
     }
     if (Sessions) Sessions->DestroySession(NAME_GameSession);
     Mode = TEXT("Solo");

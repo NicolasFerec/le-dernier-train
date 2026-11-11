@@ -345,8 +345,7 @@ void ATrainPawn::TogglePause()
     if (!PC) return;
     if (!PauseMenu && GetNetMode() == NM_Client)
     {
-        if (auto* Controller = Cast<ATrainPlayerController>(PC)) Controller->ClientNotice(TrainText(
-            TEXT("Seul l’hôte peut mettre la partie en pause"),TEXT("Only the host can pause the game")));
+        if (auto* Controller = Cast<ATrainPlayerController>(PC)) Controller->ClientNotice(ETrainNotice::OnlyHostCanPause);
         return;
     }
     if (PauseMenu)
@@ -609,7 +608,7 @@ void ATrainGameMode::RequestDeparture(ATrainPawn* Requester)
     const auto* Host = Controller->GetPlayerState<ATrainPlayerState>();
     if (!Host || !Host->IsHost)
     {
-        Controller->ClientNotice(TrainText(TEXT("Seul l’hôte peut lancer le départ"), TEXT("Only the host can start departure")));
+        Controller->ClientNotice(ETrainNotice::OnlyHostCanDepart);
         return;
     }
     if (State->RemainingEnemies > 0) return;

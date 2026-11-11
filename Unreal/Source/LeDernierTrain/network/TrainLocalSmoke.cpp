@@ -28,6 +28,7 @@ namespace
         double Began=FPlatformTime::Seconds(),Ready=0;
         FVector Before;
         bool Pressed=false,Released=false,Dash=false,Light=false,Heavy=false,Shot=false,Moved=false,Predicted=false,Placed=false,Reported=false;
+        bool Passed = false;
         bool Tick(float Delta)
         {
             for (const auto& Context:GEngine->GetWorldContexts()) if (Context.WorldType==EWorldType::Game) World=Context.World();
@@ -82,9 +83,9 @@ namespace
                 Reported=true;
                 bool Accepted=false;for (APlayerState* State:GS->PlayerArray)
                     if (auto* PS=Cast<ATrainPlayerState>(State);PS && PS->DashReadyAt>0) Accepted=true;
-                const bool Success=GS->PlayerArray.Num()==2 && (Host?Accepted&&Moved:Moved&&Dash&&Light&&Heavy&&Predicted);
+                Passed = GS->PlayerArray.Num()==2 && (Host ? Accepted && Moved : Moved && Dash && Light && Heavy && Predicted);
                 const FString Json=FString::Printf(TEXT("{\"role\":\"%s\",\"success\":%s,\"players\":%d,\"moved\":%s,\"dash\":%s,\"light\":%s,\"heavy\":%s,\"predicted_animation\":%s,\"server_accepted_dash\":%s}"),
-                    Host?TEXT("host"):TEXT("guest"),Success?TEXT("true"):TEXT("false"),GS->PlayerArray.Num(),Moved?TEXT("true"):TEXT("false"),Dash?TEXT("true"):TEXT("false"),Light?TEXT("true"):TEXT("false"),Heavy?TEXT("true"):TEXT("false"),Predicted?TEXT("true"):TEXT("false"),Accepted?TEXT("true"):TEXT("false"));
+                    Host?TEXT("host"):TEXT("guest"),Passed?TEXT("true"):TEXT("false"),GS->PlayerArray.Num(),Moved?TEXT("true"):TEXT("false"),Dash?TEXT("true"):TEXT("false"),Light?TEXT("true"):TEXT("false"),Heavy?TEXT("true"):TEXT("false"),Predicted?TEXT("true"):TEXT("false"),Accepted?TEXT("true"):TEXT("false"));
                 const FString Dir=FPaths::ProjectSavedDir()/TEXT("LocalCoopSmoke");IFileManager::Get().MakeDirectory(*Dir,true);
                 FFileHelper::SaveStringToFile(Json,*(Dir/(Host?TEXT("host.json"):TEXT("guest.json"))));
                 UE_LOG(LogTemp,Display,TEXT("TRAIN_LOCAL_COOP_SMOKE %s"),*Json);
@@ -93,7 +94,7 @@ namespace
             {
                 if (!FParse::Param(FCommandLine::Get(),TEXT("TrainCoopSmokeExit"))) return false;
                 // The host leaves last so the guest can write its complete result first.
-                if (!Host || Time>8) { FPlatformMisc::RequestExit(false);return false; }
+                if (!Host || Time>8) { FPlatformMisc::RequestExitWithStatus(false, Passed ? 0 : 1);return false; }
             }
             return true;
         }

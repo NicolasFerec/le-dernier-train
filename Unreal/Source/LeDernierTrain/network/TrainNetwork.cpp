@@ -148,8 +148,23 @@ void ATrainPlayerController::CombatText(FVector Point,float Damage,bool Hurt)
     FVector2D Screen;if (ProjectWorldLocationToScreen(Point,Screen,true))
     { Popup->SetAlignmentInViewport(FVector2D(.5,.5));Popup->SetPositionInViewport(Screen+FVector2D(0,Hurt?22:-16),true); }
 }
-void ATrainPlayerController::ClientNotice_Implementation(const FText& Text)
-{ NoticeText = Text; NoticeUntil = FPlatformTime::Seconds() + 2.5; }
+void ATrainPlayerController::ClientNotice_Implementation(ETrainNotice Notice)
+{
+    switch (Notice)
+    {
+    case ETrainNotice::OnlyHostCanPause:
+        NoticeText = TrainText(TEXT("Seul l’hôte peut mettre la partie en pause"), TEXT("Only the host can pause the game"));
+        break;
+    case ETrainNotice::OnlyHostCanDepart:
+        NoticeText = TrainText(TEXT("Seul l’hôte peut lancer le départ"), TEXT("Only the host can start departure"));
+        break;
+    case ETrainNotice::HostLeft:
+        if (auto* Session = GetGameInstance<UTrainSession>())
+            Session->Leave(TrainText(TEXT("L’hôte a quitté la session."), TEXT("The host left the session.")));
+        return;
+    }
+    NoticeUntil = FPlatformTime::Seconds() + 2.5;
+}
 FText ATrainPlayerController::Notice() const { return FPlatformTime::Seconds() < NoticeUntil ? NoticeText : FText::GetEmpty(); }
 void ATrainPlayerController::ClientReturnToMainMenuWithTextReason_Implementation(const FText& Reason)
 { if (auto* Session = GetGameInstance<UTrainSession>()) Session->Leave(Reason); }

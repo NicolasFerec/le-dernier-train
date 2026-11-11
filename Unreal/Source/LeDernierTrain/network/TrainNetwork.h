@@ -10,6 +10,14 @@
 
 FText TrainText(const TCHAR* FR, const TCHAR* EN);
 
+UENUM()
+enum class ETrainNotice : uint8
+{
+    OnlyHostCanPause,
+    OnlyHostCanDepart,
+    HostLeft,
+};
+
 UCLASS()
 class ATrainPlayerState : public APlayerState
 {
@@ -60,7 +68,7 @@ public:
     virtual bool InputKey(const FInputKeyEventArgs& Params) override;
     virtual void ClientReturnToMainMenuWithTextReason_Implementation(const FText& Reason) override;
     UFUNCTION(Client, Unreliable) void ClientHurt();
-    UFUNCTION(Client, Reliable) void ClientNotice(const FText& Text);
+    UFUNCTION(Client, Reliable) void ClientNotice(ETrainNotice Notice);
     UFUNCTION(Client, Reliable) void ClientReward(int32 Points);
     void CombatText(FVector Point,float Damage,bool Hurt);
     FText Notice() const;
