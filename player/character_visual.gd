@@ -13,16 +13,16 @@ var gait := 0.0
 var breathing := 0.0
 var _conductor := ConductorVisual.new()
 var _experiment: Sprite2D
-var _cast_shadow: Sprite2D
-var _contact_shadow: Sprite2D
+var _body_shadow: Sprite2D
+var _foot_shadows: Array[Sprite2D] = []
 var _last_render_position: Vector2
 
 
 func _ready() -> void:
 	_last_render_position = actor.render_position
-	_cast_shadow = _add_shadow(Vector2(74, 25), Vector2(17, 8), 0.84)
-	_cast_shadow.rotation = 0.38
-	_contact_shadow = _add_shadow(Vector2(36, 16), Vector2(0, 1), 0.92)
+	_body_shadow = _add_shadow(Vector2(33, 13), 0.41)
+	for _foot in range(2):
+		_foot_shadows.append(_add_shadow(Vector2(12, 6), 0.78))
 	if actor.try_3d_visual:
 		var candidate: Sprite2D = load(EXPERIMENT_PATH).new()
 		add_child(candidate)
@@ -32,10 +32,9 @@ func _ready() -> void:
 			candidate.queue_free()
 
 
-func _add_shadow(size: Vector2, center: Vector2, opacity: float) -> Sprite2D:
+func _add_shadow(size: Vector2, opacity: float) -> Sprite2D:
 	var shadow := Sprite2D.new()
 	shadow.texture = SHADOW
-	shadow.position = center
 	shadow.scale = size / SHADOW.get_size()
 	shadow.modulate.a = opacity
 	shadow.z_as_relative = false
@@ -58,11 +57,9 @@ func _process(delta: float) -> void:
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
 	z_index = Isometric.depth(projected.y)
-	var dashing: bool = actor.render_dash_time > 0
-	_cast_shadow.modulate.a = 0.6 if dashing else 0.84
-	_contact_shadow.modulate.a = 0.7 if dashing else 0.92
 	if actor.character == 0:
 		_conductor.update(actor, delta, traveled)
+	_update_shadows()
 	if _experiment != null:
 		_experiment.visible = actor.character == 0 and actor.hp > 0 and _conductor.pose in [
 			ConductorVisual.Pose.IDLE, ConductorVisual.Pose.RUN,
@@ -70,6 +67,35 @@ func _process(delta: float) -> void:
 		if _experiment.visible:
 			_experiment.update(actor, delta)
 	queue_redraw()
+
+
+func _update_shadows() -> void:
+	var feet: Array[Vector2] = []
+	if actor.character == 0:
+		feet = _conductor.ground_contacts(actor.weapon)
+	elif actor.hp > 0:
+		var angle := (Isometric.GROUND * Vector2(actor.render_facing)).angle()
+		var facing := Vector2.from_angle(snappedf(angle, PI / 4))
+		var width := 0.68 if absf(facing.x) > 0.9 else 1.0
+		for side in [-1, 1]:
+			feet.append(Vector2(side * 6 * width, -1) + facing * side * sin(gait) * 5.0)
+	var span := Vector2.ZERO
+	var center := Vector2.ZERO
+	if not feet.is_empty():
+		span = feet[-1] - feet[0]
+		center = feet[0] + span * 0.5
+	_body_shadow.position = center
+	_body_shadow.rotation = span.angle()
+	var size := Vector2(clampf(span.length() + 18.0, 23.0, 39.0), 12)
+	if actor.hp <= 0:
+		size = Vector2(42, 17)
+	_body_shadow.scale = size / SHADOW.get_size()
+	_body_shadow.modulate.a = 0.24 if actor.render_dash_time > 0.0 else 0.38
+	for index in _foot_shadows.size():
+		var shadow := _foot_shadows[index]
+		shadow.visible = index < feet.size()
+		if shadow.visible:
+			shadow.position = feet[index]
 
 
 func _draw() -> void:
@@ -103,9 +129,10 @@ func _draw() -> void:
 		front_hand.x -= 17 * width
 		rear_hand.x += 22 * width
 
-	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 0.45))
-	draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
-	draw_set_transform(Vector2.ZERO)
+	if not multiplayer.get_peers().is_empty():
+		draw_set_transform(Vector2.ZERO, 0, Vector2(1, 0.45))
+		draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
+		draw_set_transform(Vector2.ZERO)
 	if dashing:
 		var dash_axis := (Isometric.GROUND * Vector2(actor.dash_direction)).normalized()
 		for offset in [0, 6, 12]:

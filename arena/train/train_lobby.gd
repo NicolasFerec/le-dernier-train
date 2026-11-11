@@ -31,17 +31,25 @@ const SHADOW := preload("res://arena/isometric_shadow.tres")
 const INK := Color("#1d2228")
 const BRASS := Color("#d1a065")
 
-# Furniture is drawn in screen space. Its feet sit on the projected grid.
+# Each sprite lists the normalized positions where its feet or base meet the floor.
 const STATION_PROPS := [
-	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 60), 88.0],
-	[preload("res://arena/train/workbench.webp"), Vector2(480, 61), 77.0],
-	[preload("res://arena/train/lectern.webp"), Vector2(647, 61), 75.0],
-	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 100.0],
-	[preload("res://arena/train/telegraph.webp"), Vector2(310, 63), 79.0],
+	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 60), 88.0,
+		[Vector2(0.05, 0.9), Vector2(0.28, 0.99), Vector2(0.52, 0.91), Vector2(0.63, 0.95), Vector2(0.96, 0.88)]],
+	[preload("res://arena/train/workbench.webp"), Vector2(480, 61), 77.0,
+		[Vector2(0.06, 0.71), Vector2(0.25, 0.79), Vector2(0.50, 0.87), Vector2(0.69, 0.98), Vector2(0.93, 0.85)]],
+	[preload("res://arena/train/lectern.webp"), Vector2(647, 61), 75.0,
+		[Vector2(0.09, 0.83), Vector2(0.37, 0.74), Vector2(0.54, 0.98), Vector2(0.88, 0.87)]],
+	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 100.0,
+		[Vector2(0.09, 0.8), Vector2(0.25, 0.75), Vector2(0.78, 0.99), Vector2(0.94, 0.92)]],
+	[preload("res://arena/train/telegraph.webp"), Vector2(310, 63), 79.0,
+		[Vector2(0.13, 0.77), Vector2(0.65, 0.98), Vector2(0.93, 0.85)]],
 ]
 const CRATE := preload("res://arena/train/crate.webp")
 const LANTERN := preload("res://arena/train/lantern.webp")
 const TARGET := preload("res://arena/train/dummy.webp")
+const CRATE_CONTACTS := [Vector2(0.07, 0.78), Vector2(0.54, 0.98), Vector2(0.95, 0.79)]
+const LANTERN_CONTACTS := [Vector2(0.06, 0.87), Vector2(0.57, 0.98), Vector2(0.91, 0.88)]
+const TARGET_CONTACTS := [Vector2(0.19, 0.89), Vector2(0.52, 0.98), Vector2(0.82, 0.9)]
 const TARGET_HEIGHT := 74.0
 const IMPACT_DURATION := 0.24
 const CRATES := [Vector2(66, 51), Vector2(754, 55), Vector2(1168, 57), Vector2(1478, 62),
@@ -58,19 +66,19 @@ func _ready() -> void:
 	ControlHints.changed.connect(queue_redraw)
 	impacts.resize(DUMMIES.size())
 	for prop in STATION_PROPS:
-		_add_prop(prop[0], prop[1], prop[2])
+		_add_prop(prop[0], prop[1], prop[2], prop[3])
 	for point in CRATES:
-		_add_prop(CRATE, point, 34.0)
+		_add_prop(CRATE, point, 34.0, CRATE_CONTACTS)
 	for point in LANTERNS:
-		_add_prop(LANTERN, point, 49.0)
+		_add_prop(LANTERN, point, 49.0, LANTERN_CONTACTS)
 	for index in DUMMIES.size():
-		var dummy := _add_prop(TARGET, DUMMIES[index], TARGET_HEIGHT)
+		var dummy := _add_prop(TARGET, DUMMIES[index], TARGET_HEIGHT, TARGET_CONTACTS)
 		dummy.name = "PracticeTarget%d" % index
 		dummy.draw.connect(_draw_dummy_impact.bind(dummy, index))
 		_dummy_visuals.append(dummy)
 
 
-func _add_prop(texture: Texture2D, ground_position: Vector2, height: float) -> Sprite2D:
+func _add_prop(texture: Texture2D, ground_position: Vector2, height: float, contacts: Array) -> Sprite2D:
 	var sprite := Sprite2D.new()
 	sprite.texture = texture
 	sprite.position = Isometric.GROUND * ground_position
@@ -80,6 +88,11 @@ func _add_prop(texture: Texture2D, ground_position: Vector2, height: float) -> S
 	# The front feet can extend just past the centre of the footprint.
 	sprite.offset.y = -texture.get_height() * 0.45
 	add_child(sprite)
+	var shadow := Node2D.new()
+	shadow.position = sprite.position
+	shadow.z_index = 1
+	shadow.draw.connect(_draw_prop_shadow.bind(shadow, sprite.get_rect(), factor, contacts))
+	add_child(shadow)
 	return sprite
 
 
@@ -132,15 +145,6 @@ func _draw() -> void:
 	_draw_side(SKIRT, Isometric.GROUND * Vector2(FLOOR.size.x, 0), Isometric.GROUND.y,
 		FLOOR.size.y, SKIRT_HEIGHT, SKIRT_HEIGHT, 260.0)
 
-	for prop in STATION_PROPS:
-		var texture: Texture2D = prop[0]
-		_draw_prop_shadow(prop[1], prop[2] * texture.get_width() / texture.get_height())
-	for point in CRATES:
-		_draw_prop_shadow(point, 37.0)
-	for point in LANTERNS:
-		_draw_prop_shadow(point, 33.0)
-	for point in DUMMIES:
-		_draw_prop_shadow(point, 43.0)
 	for index in STATIONS.size():
 		_draw_station(index)
 	_label(Isometric.GROUND * PRACTICE_LABEL + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
@@ -179,10 +183,16 @@ func _draw_side(texture: Texture2D, origin: Vector2, axis: Vector2,
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-func _draw_prop_shadow(point: Vector2, width: float) -> void:
-	var center := Isometric.GROUND * point
-	draw_texture_rect(SHADOW, Rect2(center + Vector2(-width * 0.48, -12), Vector2(width * 1.15, 27)), false)
-
+func _draw_prop_shadow(canvas: Node2D, sprite_rect: Rect2, factor: float, contacts: Array) -> void:
+	var bounds := Rect2(sprite_rect.position + sprite_rect.size * contacts[0], Vector2.ZERO)
+	for contact: Vector2 in contacts:
+		bounds = bounds.expand(sprite_rect.position + sprite_rect.size * contact)
+	var footprint := Rect2(bounds.position * factor, bounds.size * factor)
+	canvas.draw_texture_rect(SHADOW, footprint.grow_individual(8, 5, 8, 4), false, Color(1, 1, 1, 0.45))
+	var pad := Vector2(11, 5) if sprite_rect.size.y * factor >= 60.0 else Vector2(9, 5)
+	for contact: Vector2 in contacts:
+		var foot := (sprite_rect.position + sprite_rect.size * contact) * factor
+		canvas.draw_texture_rect(SHADOW, Rect2(foot - pad * 0.5, pad), false, Color(1, 1, 1, 0.8))
 
 func _draw_station(index: int) -> void:
 	var station: Array = STATIONS[index]

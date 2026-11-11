@@ -22,6 +22,26 @@ const RUN_CYCLE_DISTANCE := 73.0
 const HIT_TIME := 0.18
 const FALL_TIME := 0.24
 
+# Sole positions relative to the atlas pivot, in the same coordinates as the sprites.
+const IDLE_CONTACTS := [
+	[Vector2(-9, -1), Vector2(10, -1)],
+	[Vector2(-8, -5), Vector2(8, -1)],
+	[Vector2(-4, -12), Vector2(-2, -1)],
+	[Vector2(-6, -1), Vector2(7, -9)],
+	[Vector2(-9, -1), Vector2(10, -1)],
+	[Vector2(-7, -9), Vector2(7, -1)],
+	[Vector2(1, -1), Vector2(6, -12)],
+	[Vector2(-4, -1), Vector2(11, -9)],
+]
+# Planted boot X per frame for the two painted diagonal running and dodging cycles.
+# Entries are grouped by weapon, then southwest/northeast.
+const RUN_CONTACT_X := [[[-15, -7, 0, -12], [-15, -3, -16, -2]], [[0, 7, 0, 5], [-15, -3, -3, -2]]]
+const DODGE_CONTACT_X := [[[-18, -22, -10, 0], [-5, -18, -2, -6]], [[3, -20, -6, -5], [-15, -20, -13, -15]]]
+const WORKSHOP_STANCE := [
+	[[Vector2(-4, -2), Vector2(16, -10)], [Vector2(-12, -5), Vector2(8, -2)]],
+	[[Vector2(-11, -2), Vector2(10, -5)], [Vector2(-13, -6), Vector2(9, -2)]],
+]
+
 var pose := Pose.IDLE
 var direction := 0
 var frame := 0
@@ -77,6 +97,23 @@ func update(actor: Node2D, delta: float, traveled: float) -> void:
 	frame = clampi(floori(progress * frame_count), 0, frame_count - 1)
 	if pose == Pose.LIGHT and actor.reverse_light_swing and frame in [1, 2] and not _has_workshop_pose():
 		frame = 3 - frame
+
+
+func ground_contacts(weapon: int) -> Array[Vector2]:
+	if pose == Pose.FALL:
+		return []
+	if _has_workshop_pose():
+		var side := int(direction == NORTHEAST)
+		if pose == Pose.RUN:
+			return [Vector2(RUN_CONTACT_X[weapon][side][frame], -1)]
+		if pose == Pose.DODGE:
+			return [Vector2(DODGE_CONTACT_X[weapon][side][frame], -1)]
+		var stance: Array = WORKSHOP_STANCE[weapon][side]
+		return [stance[0], stance[1]]
+	if pose == Pose.IDLE:
+		var stance: Array = IDLE_CONTACTS[direction]
+		return [stance[0], stance[1]]
+	return [Vector2(0, -1)]
 
 
 func draw(canvas: CanvasItem, actor: Node2D) -> void:
