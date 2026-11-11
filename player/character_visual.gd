@@ -4,22 +4,24 @@ const INK := Color("#202630")
 const STEEL := Color("#c3d6d5")
 const BRASS := Color("#e6b379")
 
-const PROTOTYPE_FRAMES := "res://assets/mythryl-local/64px/godot/colour.tres"
-const DIRECTIONS := ["e", "se", "s", "sw", "w", "nw", "n", "ne"]
-
-var prototype_frames: SpriteFrames
-@onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
+const ConductorVisual := preload("res://player/conductor/visual.gd")
+const EXPERIMENT_PATH := "res://player/conductor/experiment/visual.gd"
 
 var actor: Node2D
 var gait := 0.0
 var breathing := 0.0
+var _conductor := ConductorVisual.new()
+var _experiment: Sprite2D
 
 
 func _ready() -> void:
-	if ResourceLoader.exists(PROTOTYPE_FRAMES, "SpriteFrames"):
-		prototype_frames = load(PROTOTYPE_FRAMES) as SpriteFrames
-		sprite.sprite_frames = prototype_frames
-	_process(0.0)
+	if actor.try_3d_visual:
+		var candidate: Sprite2D = load(EXPERIMENT_PATH).new()
+		add_child(candidate)
+		if candidate.setup():
+			_experiment = candidate
+		else:
+			candidate.queue_free()
 
 
 func _process(delta: float) -> void:
@@ -30,45 +32,19 @@ func _process(delta: float) -> void:
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
 	z_index = Isometric.depth(projected.y)
-	sprite.visible = prototype_frames != null and actor.character == 0 and actor.weapon == 0 and actor.hp > 0
-	if sprite.visible:
-		_update_sprite()
+	if actor.character == 0:
+		_conductor.update(actor, delta)
+	if _experiment != null:
+		_experiment.visible = actor.character == 0 and actor.hp > 0 and _conductor.pose in [
+			ConductorVisual.Pose.IDLE, ConductorVisual.Pose.RUN,
+		]
+		if _experiment.visible:
+			_experiment.update(actor, delta)
 	queue_redraw()
 
 
-func _update_sprite() -> void:
-	var move := "sword-ready"
-	var direction: Vector2 = actor.render_facing
-	var progress := -1.0
-	if actor.render_dash_time > 0.0:
-		move = "roll"
-		direction = actor.dash_direction
-		progress = 1.0 - actor.render_dash_time / PlayerLocomotion.DASH_DURATION
-	elif actor.swing_progress() < 1.0:
-		if actor.heavy_attack:
-			move = "sword-heavy"
-		else:
-			move = "sword-attack-2" if actor.reverse_light_swing else "sword-attack-1"
-		direction = actor.attack_direction
-		progress = actor.swing_progress()
-	elif actor.render_movement != Vector2.ZERO:
-		move = "run"
-	var angle := (Isometric.GROUND * direction).angle()
-	var animation := StringName("%s-%s" % [move, DIRECTIONS[posmod(roundi(angle / (PI / 4)), 8)]])
-	if progress >= 0.0:
-		sprite.pause()
-		sprite.animation = animation
-		var count := prototype_frames.get_frame_count(animation)
-		var frame_position := clampf(progress * count, 0.0, count - 0.001)
-		sprite.set_frame_and_progress(floori(frame_position), fposmod(frame_position, 1.0))
-	elif actor.paused:
-		sprite.pause()
-	else:
-		sprite.play(animation)
-
-
 func _draw() -> void:
-	if actor.hp <= 0:
+	if actor.hp <= 0 and actor.character != 0:
 		draw_line(Vector2(-13, 3), Vector2(10, -3), INK, 13, true)
 		draw_line(Vector2(-10, 3), Vector2(6, -2), Color("#546069"), 8, true)
 		draw_circle(Vector2(12, -4), 6, Color("#8b786e"), true, -1, true)
@@ -109,10 +85,9 @@ func _draw() -> void:
 	if attack > 0:
 		_draw_swing(attack, team, attack_angle + actor.swing_offset(0.0), swing_edge)
 
-	if sprite.visible:
-		if sprite.animation.begins_with("run-"):
-			var carry_hand := Vector2(12.0 * signf(facing.x), -23.0) + facing * stride * 0.5
-			_draw_weapon(carry_hand, facing.angle() + PI - facing.x * 0.35, false)
+	if not scout:
+		if _experiment == null or not _experiment.visible:
+			_conductor.draw(self, actor)
 		return
 
 	for side in [-1, 1]:

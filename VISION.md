@@ -57,6 +57,8 @@ Les essais graphiques de gameplay montrent une portion de carte à l’échelle 
 
 ### Ambiance et lisibilité
 
+La direction artistique privilégie un steampunk peint. Le conducteur associe un manteau bordeaux, des garnitures de cuivre et une épée à mécanisme apparent. L’automate se reconnaît à sa silhouette massive, à ses plaques d’acier patiné et à son œil de chaudière ambré. Le menu reprend ces matières avec des boutons sombres aux liserés cuivrés et un titre en Cinzel.
+
 L’univers est sombre par son histoire et son atmosphère. Les gares désertées, les machines qui tournent encore et les traces des anciens voyageurs racontent ce qui a été perdu. À bord, les lampes chaudes et les signes de vie de l’équipage donnent au train un air de refuge.
 
 Les salles doivent rester lisibles au premier regard, même de nuit ou dans la brume. On distingue le sol praticable, les obstacles et la sortie, ainsi que les silhouettes des joueurs et des ennemis. Les décors peuvent employer des couleurs franches et des contrastes marqués. En combat, les effets laissent les menaces et les trajectoires visibles, même avec quatre joueurs.

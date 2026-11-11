@@ -394,6 +394,7 @@ func _clear_room() -> void:
 func _add_player(id: int, slot: int) -> Node2D:
 	var player := PLAYER.instantiate()
 	player.slot = slot
+	player.try_3d_visual = room == 0 and id == multiplayer.get_unique_id() and "--conductor-3d" in OS.get_cmdline_user_args()
 	player.paused = game_paused
 	player.position = TrainLobby.SPAWNS[slot] if room == 0 else mission.spawn_point(slot)
 	player.previous_position = player.position

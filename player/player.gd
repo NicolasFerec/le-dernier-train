@@ -10,6 +10,7 @@ const VISUAL := preload("res://player/character_visual.tscn")
 
 var character := 0
 var weapon := 0
+var try_3d_visual := false
 var slot := 0
 var paused := false
 var max_hp := 5

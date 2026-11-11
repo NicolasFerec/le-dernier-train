@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://ui/main_menu.gd" id="1"]
 
@@ -7,6 +7,8 @@
 [ext_resource type="Shader" path="res://ui/menu_fog.gdshader" id="3"]
 
 [ext_resource type="PackedScene" path="res://ui/controls_settings.tscn" id="4"]
+
+[ext_resource type="FontFile" path="res://assets/fonts/Cinzel.ttf" id="5"]
 
 [sub_resource type="ShaderMaterial" id="Fog"]
 shader = ExtResource("3")
@@ -27,6 +29,121 @@ corner_radius_top_right = 8
 corner_radius_bottom_left = 8
 corner_radius_bottom_right = 8
 
+[sub_resource type="StyleBoxFlat" id="ButtonNormal"]
+content_margin_left = 16.0
+content_margin_top = 6.0
+content_margin_right = 16.0
+content_margin_bottom = 6.0
+bg_color = Color(0.075, 0.085, 0.1, 0.97)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.66, 0.4, 0.25, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="ButtonHover"]
+content_margin_left = 16.0
+content_margin_top = 6.0
+content_margin_right = 16.0
+content_margin_bottom = 6.0
+bg_color = Color(0.19, 0.115, 0.11, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.84, 0.56, 0.34, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="ButtonPressed"]
+content_margin_left = 16.0
+content_margin_top = 6.0
+content_margin_right = 16.0
+content_margin_bottom = 6.0
+bg_color = Color(0.29, 0.13, 0.12, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.91, 0.66, 0.4, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="ButtonFocus"]
+bg_color = Color(0, 0, 0, 0)
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.98, 0.76, 0.47, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="TabPanel"]
+bg_color = Color(0.075, 0.085, 0.1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.66, 0.4, 0.25, 1)
+
+[sub_resource type="StyleBoxFlat" id="TabSelected"]
+content_margin_left = 16.0
+content_margin_top = 6.0
+content_margin_right = 16.0
+content_margin_bottom = 6.0
+bg_color = Color(0.075, 0.085, 0.1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.66, 0.4, 0.25, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id="TabFocus"]
+draw_center = false
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.98, 0.76, 0.47, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+
+[sub_resource type="Theme" id="MenuTheme"]
+Button/colors/font_color = Color(0.94, 0.87, 0.77, 1)
+Button/colors/font_hover_color = Color(1, 0.94, 0.83, 1)
+Button/colors/font_focus_color = Color(1, 0.94, 0.83, 1)
+Button/colors/font_pressed_color = Color(1, 0.94, 0.83, 1)
+Button/styles/normal = SubResource("ButtonNormal")
+Button/styles/hover = SubResource("ButtonHover")
+Button/styles/pressed = SubResource("ButtonPressed")
+Button/styles/focus = SubResource("ButtonFocus")
+TabContainer/colors/font_selected_color = Color(1, 0.94, 0.83, 1)
+TabContainer/colors/font_hovered_color = Color(1, 0.94, 0.83, 1)
+TabContainer/colors/font_unselected_color = Color(0.83, 0.77, 0.69, 1)
+TabContainer/constants/side_margin = 0
+TabContainer/styles/panel = SubResource("TabPanel")
+TabContainer/styles/tab_selected = SubResource("TabSelected")
+TabContainer/styles/tab_hovered = SubResource("ButtonHover")
+TabContainer/styles/tab_unselected = SubResource("ButtonNormal")
+TabContainer/styles/tab_focus = SubResource("TabFocus")
+
+[sub_resource type="StyleBoxLine" id="CopperRule"]
+color = Color(0.77, 0.49, 0.3, 1)
+thickness = 1
+
 [node name="MainMenu" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -34,6 +151,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = SubResource("MenuTheme")
 script = ExtResource("1")
 
 [node name="Backdrop" type="CanvasLayer" parent="."]
@@ -60,30 +178,59 @@ grow_vertical = 2
 [node name="Home" type="VBoxContainer" parent="Center"]
 custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="Center/Home"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.75, 0.51, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_colors/font_color = Color(0.99, 0.89, 0.73, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.04, 0.05, 0.95)
 theme_override_colors/font_shadow_color = Color(0.03, 0.04, 0.07, 0.95)
+theme_override_constants/outline_size = 4
 theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 48
 text = "Le Dernier Train"
 horizontal_alignment = 1
 
+[node name="Ornament" type="HBoxContainer" parent="Center/Home"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(236, 14)
+theme_override_constants/separation = 10
+mouse_filter = 2
+
+[node name="LeftRule" type="HSeparator" parent="Center/Home/Ornament"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("CopperRule")
+
+[node name="Diamond" type="Label" parent="Center/Home/Ornament"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.87, 0.57, 0.34, 1)
+theme_override_font_sizes/font_size = 12
+text = "◆"
+
+[node name="RightRule" type="HSeparator" parent="Center/Home/Ornament"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("CopperRule")
+
 [node name="Play" type="Button" parent="Center/Home"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(280, 44)
+size_flags_horizontal = 4
 text = "MENU_PLAY"
 
 [node name="Options" type="Button" parent="Center/Home"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
+custom_minimum_size = Vector2(280, 40)
+size_flags_horizontal = 4
 text = "MENU_SETTINGS"
 
 [node name="Quit" type="Button" parent="Center/Home"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
+custom_minimum_size = Vector2(280, 40)
+size_flags_horizontal = 4
 text = "MENU_QUIT"
 
 [node name="Settings" type="PanelContainer" parent="Center"]

@@ -2,9 +2,8 @@ extends Node2D
 class_name TrainLobby
 
 const FLOOR := Rect2(0, 0, 2460, 520)
-const PRACTICE := Rect2(1440, 147, 350, 251)
 const BOUNDS := Rect2(30, 76, 2400, 408)
-const SPAWNS := [Vector2(285, 245), Vector2(225, 295), Vector2(345, 295), Vector2(285, 345)]
+const SPAWNS := [Vector2(830, 181), Vector2(770, 237), Vector2(890, 237), Vector2(830, 287)]
 const DEPARTURE_STATION := 3
 const DEPARTURE_RADIUS := 90.0
 const INVITATION_STATION := 4
@@ -18,7 +17,10 @@ const STATIONS := [
 const DUMMIES := [Vector2(1515, 226), Vector2(1615, 333), Vector2(1720, 225)]
 const JOINTS := [655.0, 1355.0, 1915.0]
 const WOOD := preload("res://arena/train/walnut_floor.webp")
-const STEEL_TREAD := preload("res://arena/train/steel_tread.webp")
+const WORKSHOP_DECK := preload("res://arena/train/workshop_deck.webp")
+const WORKSHOP_WALL := preload("res://arena/train/workshop_wall.webp")
+const WORKSHOP_START := 655.0
+const WORKSHOP_END := 1915.0
 const INK := Color("#1d2228")
 const BRASS := Color("#d1a065")
 
@@ -86,10 +88,11 @@ func _draw() -> void:
 		draw_rect(Rect2(0, y, 2460, 10), Color("#384750"))
 		for x in range(15, 2460, 26):
 			draw_circle(Vector2(x, y + 5), 2, BRASS)
-	_draw_surface(PRACTICE, STEEL_TREAD, 125, Color("#93a4a8"))
-	draw_rect(PRACTICE, BRASS, false, 3)
+	draw_texture_rect(WORKSHOP_DECK, Rect2(WORKSHOP_START, 0, WORKSHOP_END - WORKSHOP_START, FLOOR.size.y), false)
 	for index in STATIONS.size():
 		var station: Array = STATIONS[index]
+		if _in_workshop(station[0].x):
+			continue
 		var radius := DEPARTURE_RADIUS if index == DEPARTURE_STATION else 49.0
 		draw_circle(station[0], radius, Color("#29383c", 0.8))
 		draw_arc(station[0], radius, 0, TAU, 48, station[2], 3, true)
@@ -99,22 +102,36 @@ func _draw() -> void:
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 	# Low rear bulkhead, windows and brass framing in projected space.
-	_wall_segment(0, 2460, 31, Color("#426169"))
+	_wall_segment(0, WORKSHOP_START, 31, Color("#426169"))
+	_wall_segment(WORKSHOP_END, FLOOR.end.x, 31, Color("#426169"))
+	draw_set_transform_matrix(Transform2D(Isometric.GROUND.x, Vector2.DOWN,
+		Isometric.GROUND * Vector2(WORKSHOP_START, 0)))
+	draw_texture_rect(WORKSHOP_WALL, Rect2(0, -154, WORKSHOP_END - WORKSHOP_START, 154), false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 	for x in range(28, 2420, 112):
+		if _in_workshop(x) or _in_workshop(x + 75):
+			continue
 		var a := Isometric.GROUND * Vector2(x, 0)
 		var b := Isometric.GROUND * Vector2(x + 75, 0)
 		var rise := Vector2(0, -23)
 		draw_colored_polygon(PackedVector2Array([a + rise, b + rise, b + Vector2(0, -8), a + Vector2(0, -8)]), Color("#6ea0aa"))
 		draw_line(a + rise, b + rise, BRASS, 2, true)
 		draw_line(a + Vector2(0, -7), b + Vector2(0, -7), INK, 2, true)
-	_wall_segment(0, 2460, 4, BRASS)
+	_wall_segment(0, WORKSHOP_START, 4, BRASS)
+	_wall_segment(WORKSHOP_END, FLOOR.end.x, 4, BRASS)
 	for x in [85, 520, 715, 1000, 1265, 1830, 1995, 2360]:
+		if _in_workshop(x):
+			continue
 		_draw_lamp(Isometric.GROUND * Vector2(x, 43))
 	for x in [75, 470, 573, 718, 1220, 1825, 1970, 2340]:
+		if _in_workshop(x):
+			continue
 		_draw_crate(Vector2(x, 52), 34, Color("#665643"))
 	for x in [212, 926, 1390, 2038, 2296]:
 		_draw_crate(Vector2(x, 488), 26, Color("#485a5d"))
 	for x in [180, 770, 1070, 2010, 2280]:
+		if _in_workshop(x):
+			continue
 		_draw_bench(Vector2(x, 34))
 	for index in STATIONS.size():
 		_draw_station(index)
@@ -123,6 +140,10 @@ func _draw() -> void:
 	for action in ["attack", "heavy_attack", "dodge"]:
 		practice_buttons.append(ControlHints.binding_label(action, ControlHints.using_gamepad, true))
 	_label(Isometric.GROUND * Vector2(1615, 153) + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
+
+
+func _in_workshop(x: float) -> bool:
+	return x >= WORKSHOP_START and x < WORKSHOP_END
 
 
 func _draw_surface(area: Rect2, texture: Texture2D, tile_size: int, tint: Color) -> void:
@@ -181,6 +202,10 @@ func _draw_station(index: int) -> void:
 	var station: Array = STATIONS[index]
 	var center := Isometric.GROUND * Vector2(station[0])
 	var accent: Color = station[2]
+	if _in_workshop(station[0].x):
+		draw_arc(center, 14, 0, TAU, 36, accent, 2, true)
+		_draw_station_label(index, center + Vector2(0, -27), accent)
+		return
 	draw_set_transform(center)
 	draw_colored_polygon(PackedVector2Array([Vector2(-28, -13), Vector2(0, -28), Vector2(28, -13), Vector2(28, 1),
 		Vector2(0, 16), Vector2(-28, 1)]), INK)
@@ -209,8 +234,11 @@ func _draw_station(index: int) -> void:
 			for radius in [5.0, 9.0]:
 				draw_arc(signal_center, radius, -PI * 0.81, -PI * 0.19, 14, accent, 1.5, true)
 	draw_set_transform(Vector2.ZERO)
-	var title := tr(station[1])
-	var title_anchor := center + Vector2(0, -50)
+	_draw_station_label(index, center + Vector2(0, -50), accent)
+
+
+func _draw_station_label(index: int, title_anchor: Vector2, accent: Color) -> void:
+	var title := tr(STATIONS[index][1])
 	_label(title_anchor, title, accent)
 	if index == _interactable_station:
 		var font := ThemeDB.fallback_font
