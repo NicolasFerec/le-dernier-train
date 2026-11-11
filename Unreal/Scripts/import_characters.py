@@ -5,7 +5,7 @@ ROOT=Path(ue.Paths.convert_relative_path_to_full(ue.Paths.project_dir()))
 AS=ue.get_editor_subsystem(ue.EditorAssetSubsystem)
 AT=ue.AssetToolsHelpers.get_asset_tools()
 
-def fbx(file,path,name,skeletal=False,animations=False):
+def fbx(file,path,name,skeletal=False,animations=False,source_yaw=None):
     force='TrainReimport' in ue.SystemLibrary.get_command_line() and not animations
     if AS.does_asset_exist(path+'/'+name) and not force: return ue.load_asset(path+'/'+name)
     if AS.does_asset_exist(path+'/'+name+'1'):
@@ -16,6 +16,10 @@ def fbx(file,path,name,skeletal=False,animations=False):
     opt=ue.FbxImportUI();opt.import_mesh=True;opt.import_as_skeletal=skeletal;opt.import_animations=animations
     opt.import_materials=True;opt.import_textures=False;opt.automated_import_should_detect_type=False
     opt.mesh_type_to_import=ue.FBXImportType.FBXIT_SKELETAL_MESH if skeletal else ue.FBXImportType.FBXIT_STATIC_MESH
+    if source_yaw is not None:
+        rotation=ue.Rotator(yaw=source_yaw)
+        opt.skeletal_mesh_import_data.import_rotation=rotation
+        opt.anim_sequence_import_data.import_rotation=rotation
     if not skeletal: opt.static_mesh_import_data.combine_meshes=True
     task.options=opt;AT.import_asset_tasks([task])
     print('IMPORTED',name,task.imported_object_paths)
@@ -74,24 +78,37 @@ def retarget(source,target,anims,label):
     out=ue.IKRetargetBatchOperation.run_batch_retarget(inputs)
     print('RETARGETED',label,len(out));return target_path+'/Animations'
 
-source=fbx('SourceArt/Animations/Quaternius/AL_Standard.fbx','/Game/Characters/AnimationSource','SK_Source',True,True)
-source2=fbx('SourceArt/Animations/Quaternius2/UAL2_Standard.fbx','/Game/Characters/AnimationSource2','SK_Source2',True,True)
-target=fbx('SourceArt/Characters/Conductor/SK_Conductor.fbx','/Game/Characters/Conductor','SK_Conductor',True)
-enemy=fbx('SourceArt/Characters/Automaton/SK_Automaton.fbx','/Game/Characters/Automaton','SK_Automaton',True)
-surface(target,'SourceArt/Characters/Conductor/conductor_color.jpg','Conductor')
-surface(enemy,'SourceArt/Characters/Automaton/automaton_color.jpg','Automaton')
-for name in ['sabre','hammer']:
-    mesh=fbx('SourceArt/Weapons/'+name+'.fbx','/Game/Weapons',name)
-    surface(mesh,'SourceArt/Weapons/'+name+'_color.jpg',name)
+def main():
+    import sys
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from retarget_conductor import bake
 
-clips1={'Idle':'Sword_Idle','Run':'Jog_Fwd_Loop','Walk':'Walk_Loop','Dodge':'Roll','Hit':'Hit_Chest','Death':'Death01','Attack':'Punch_Cross','HammerLight':'Sword_Attack'}
-clips2={'Light':'Sword_Regular_A','Heavy':'Sword_Regular_C','HammerHeavy':'TreeChopping_Loop'}
-for mesh in [target,enemy]:
+    target=fbx('SourceArt/Characters/Conductor/SK_Conductor.fbx','/Game/Characters/Conductor','SK_Conductor',True)
+    cmdline=ue.SystemLibrary.get_command_line()
+    if 'TrainReimport' in cmdline or not AS.does_asset_exist('/Game/Characters/Conductor/M_Conductor'):
+        surface(target,'SourceArt/Characters/Conductor/conductor_color.jpg','Conductor')
+    bake(target,fbx,rig)
+    if 'TrainConductorOnly' in cmdline:
+        return
+    import_automaton_and_props()
+
+
+def import_automaton_and_props():
+    source=fbx('SourceArt/Animations/Quaternius/AL_Standard.fbx','/Game/Characters/AnimationSource','SK_Source',True,True)
+    source2=fbx('SourceArt/Animations/Quaternius2/UAL2_Standard.fbx','/Game/Characters/AnimationSource2','SK_Source2',True,True)
+    enemy=fbx('SourceArt/Characters/Automaton/SK_Automaton.fbx','/Game/Characters/Automaton','SK_Automaton',True)
+    surface(enemy,'SourceArt/Characters/Automaton/automaton_color.jpg','Automaton')
+    for name in ['sabre','hammer']:
+        mesh=fbx('SourceArt/Weapons/'+name+'.fbx','/Game/Weapons',name)
+        surface(mesh,'SourceArt/Weapons/'+name+'_color.jpg',name)
+
+    clips1={'Idle':'Sword_Idle','Run':'Jog_Fwd_Loop','Walk':'Walk_Loop','Dodge':'Roll','Hit':'Hit_Chest','Death':'Death01','Attack':'Punch_Cross','HammerLight':'Sword_Attack'}
+    clips2={'Light':'Sword_Regular_A','Heavy':'Sword_Regular_C','HammerHeavy':'TreeChopping_Loop'}
     for src,clips in [(source,clips1),(source2,clips2)]:
         folder=src.get_path_name().rsplit('/',1)[0]
         anims=[ue.load_asset(p) for p in AS.list_assets(folder,recursive=True) if isinstance(ue.load_asset(p),ue.AnimSequence)]
         selected={name:next(a for a in anims if a.get_name().endswith('_'+suffix)) for name,suffix in clips.items()}
-        out=retarget(src,mesh,list(selected.values()),src.get_name()+'_'+mesh.get_name())
+        out=retarget(src,enemy,list(selected.values()),src.get_name()+'_'+enemy.get_name())
         for name,srcanim in selected.items():
             dest=out+'/'+name
             if AS.does_asset_exist(dest):AS.delete_asset(dest)
@@ -100,7 +117,10 @@ for mesh in [target,enemy]:
             asset.set_editor_property('root_motion_root_lock',ue.RootMotionRootLock.REF_POSE)
             asset.set_editor_property('enable_root_motion',False)
             AS.save_loaded_asset(asset)
-    print('MESH_BOUNDS',mesh.get_name(),mesh.get_bounds())
-portrait=texture(ROOT/'SourceArt/Portraits/Conductor.png','/Game/UI/Portraits','Conductor')
-AS.save_directory('/Game/Characters',recursive=True)
-print('TRAIN_CHARACTERS_IMPORTED')
+    texture(ROOT/'SourceArt/Portraits/Conductor.png','/Game/UI/Portraits','Conductor')
+    AS.save_directory('/Game/Characters',recursive=True)
+    print('TRAIN_CHARACTERS_IMPORTED')
+
+
+if __name__=='__main__':
+    main()

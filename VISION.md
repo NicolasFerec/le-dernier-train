@@ -1,6 +1,6 @@
 # Vision du jeu
 
-Le jeu est un roguelite d’action en 2D isométrique à angle fixe, jouable seul ou en coop en ligne de deux à quatre joueurs. Il s’inspire de **SWORN**, **ANVIL: Vault Breaker** et **Chained Beasts**. SWORN sert de référence pour la préparation au salon et la progression de l’équipement. ANVIL inspire le choix du monde au départ et leur déblocage successif.
+Le jeu est un roguelite d’action en 3D stylisée avec une caméra orthographique à angle fixe, jouable seul ou en coop en ligne de deux à quatre joueurs. Il s’inspire de **SWORN**, **ANVIL: Vault Breaker** et **Chained Beasts**. SWORN sert de référence pour la préparation au salon et la progression de l’équipement. ANVIL inspire le choix du monde au départ et leur déblocage successif.
 
 ## 1. Préparer et jouer une partie
 
@@ -43,7 +43,7 @@ Le corps à corps domine l’arsenal. Les bâtons, les épées et les haches cô
 
 ### Caméra de jeu
 
-Le jeu adopte une **vue 2D isométrique à angle fixe**, comme dans les [captures de gameplay de SWORN](https://store.steampowered.com/app/1763250/SWORN/). Les deux axes du sol apparaissent en diagonale. Le sol occupe l’essentiel de l’image et on voit assez du côté des personnages et des objets pour reconnaître leurs silhouettes.
+Le jeu adopte une **vue isométrique à angle fixe, en projection orthographique**, comme dans les [captures de gameplay de SWORN](https://store.steampowered.com/app/1763250/SWORN/). Les deux axes du sol apparaissent en diagonale. Le sol occupe l’essentiel de l’image et on voit assez du côté des personnages et des objets pour reconnaître leurs silhouettes.
 
 L’inclinaison et l’orientation de la caméra restent fixes, dans le train comme dans toutes les salles. La caméra suit le personnage du joueur. En coop, chacun suit son propre personnage avec le même angle de vue. Le décor défile à mesure qu’on avance. Les éléments hauts, notamment les murs du wagon, laissent les chemins, les personnages et les postes interactifs visibles.
 

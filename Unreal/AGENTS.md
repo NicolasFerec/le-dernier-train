@@ -14,4 +14,4 @@ L’App ID de test 480 figure dans `Config/DefaultEngine.ini` et `steam_appid.tx
 
 Compiler et tester en local. Le test natif `LeDernierTrain.Network.FourPlayers` crée un hôte et trois clients dans l’éditeur ; vérifier aussi `Scripts/local-coop.sh 2` dans des processus distincts. Distinguer les vérifications locales, les tests simulés et le test Steam réel dans le compte rendu.
 
-Garder les itérations locales sauf demande explicite de push/PR. Le workflow de distribution publie le canal Dev après une mise à jour de `main`. Déclencher une release stable uniquement sur demande explicite après review. Utiliser le workflow manuel sur le tag stable pour générer le changelog et publier les deux plateformes.
+Garder les itérations locales sauf demande explicite de push/PR. Construire les paquets en local et joindre les fichiers aux releases GitHub. Publier une release stable uniquement sur demande explicite après review, depuis un tag de `main`. Générer les notes GitHub depuis la release stable précédente.

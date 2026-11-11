@@ -98,7 +98,7 @@ public:
     UFUNCTION(Server, Reliable) void ServerAttack(bool Heavy);
     UFUNCTION(Server, Reliable) void ServerInteract();
     UFUNCTION(NetMulticast, Unreliable) void MulticastSwing(bool Heavy, FRotator Direction);
-    UFUNCTION(NetMulticast, Unreliable) void MulticastDodge();
+    UFUNCTION(NetMulticast, Unreliable) void MulticastDashSound();
     UFUNCTION(NetMulticast, Unreliable) void MulticastDamage(float Damage,bool Dead);
     UFUNCTION(Server, Reliable) void ServerLoadout(int32 NewCharacter,int32 NewWeapon,bool Health,bool Speed);
     UFUNCTION() void ApplyLoadout();

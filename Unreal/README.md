@@ -16,7 +16,7 @@ Le conducteur a un sabre et peut débloquer le marteau à piston. L’Éclaireur
 
 Accessibles depuis le menu principal et la pause, enregistrés dans `Saved/Config/LinuxEditor/GameUserSettings.ini` en développement (les versions distribuées utiliseront leur dossier utilisateur Unreal).
 
-- Audio : volumes général, musique et effets. Les ambiances du dépôt et du wagon et le son de frappe sont importés depuis le projet Godot ; les volumes pilotent des Sound Classes.
+- Audio : volumes général, musique et effets. Les ambiances du dépôt et du wagon et le son de frappe sont importés depuis `SourceArt/Audio` ; les volumes pilotent des Sound Classes.
 - Graphismes : plein écran, résolutions du format de l’écran, VSync, compteur d’IPS, limite d’IPS par paliers (automatique, 30 à 240, sans limite), qualité globale et réglages des ombres, textures, effets, anticrénelage, post-traitement et distance d’affichage.
 - Général : français/anglais et disposition AZERTY/QWERTY.
 - Commandes : clavier/manette, réattribution des actions du prototype et du changement d’onglet, rejet des doublons dans un même contexte, touches réservées, réinitialisation, activation des vibrations.
@@ -53,15 +53,14 @@ python Distribution/package_installer.py --game Saved/Distribution/Packages/Le-D
 
 Sur Windows, passe le chemin d’Unreal sous Windows et utilise l’archive dont le nom se termine par `-windows-x86_64.zip`. Les archives et installateurs sortent dans `Saved/Distribution/Packages`. Le build démarre l’exécutable Shipping avec `-nullrhi` et attend que le menu charge ses réglages. Les tests de mise à jour se lancent avec `python -m unittest discover -s Distribution -p 'test_*.py'`.
 
-### Activer GitHub Actions
+### Publier les paquets
 
-Le workflow construit le projet dans `Unreal/` depuis le dépôt public GitHub de Le Dernier Train. Le lanceur généré par la CI utilise ce dépôt comme source. Le tag `unreal-dev` permet aux deux générations du jeu de cohabiter. Pour les builds locaux, l’option `--repository propriétaire/dépôt` de `package_installer.py` sélectionne la même source.
+Construis localement depuis le commit de `main` à distribuer. Les fichiers à publier sont le ZIP du jeu et l’installateur de chaque plateforme construite. Le lanceur attend un ZIP Unreal correspondant à son canal et à sa plateforme.
 
-Enregistre deux runners dédiés au dépôt, Linux x86-64 et Windows x64, avec le label `unreal-5.8.4`. Installe les SDK, Python, Git, Bash et `gh`, puis configure `UNREAL_LINUX_ROOT` et `UNREAL_WINDOWS_ROOT` dans les variables Actions. Le script Windows utilise les redistribuables d’Unreal ou de Visual Studio. `UNREAL_WINDOWS_APPLOCAL_DIR` permet de fournir une arborescence Unreal alternative, par exemple `Win64/x64/Microsoft.VC143.CRT`.
+- **Stable** suit la dernière release GitHub stable. Crée un tag `vX.Y.Z` sur le commit validé, prépare la release en brouillon avec les notes GitHub générées depuis la stable précédente, puis publie après avoir vérifié les fichiers joints.
+- **Dev** utilise la préversion `unreal-dev`. Publie une archive versionnée et l’installateur correspondant pour chaque plateforme construite.
 
-Les PR qui modifient la distribution exécutent les tests du lanceur sur GitHub. Chaque mise à jour de `main` prépare les deux jeux et les deux installateurs, puis actualise la préversion `unreal-dev`. Les paquets transitent par un brouillon de release que le workflow supprime après publication. Le lanceur attend que les deux archives soient disponibles pour proposer un nouveau build. Une stable se lance manuellement sur un tag `vX.Y.Z` issu de `main`, par exemple avec `gh workflow run distribution.yml --ref v0.2.0`. GitHub génère les notes de version. Le dépôt doit autoriser la mise à jour de la préversion et de son tag `unreal-dev`.
-
-Tant que `UNREAL_WINDOWS_ROOT` est vide, le workflow Dev construit Linux et conserve l’installateur dans le brouillon de release pour test. La publication des canaux Dev et Stable reprend une fois les deux plateformes configurées.
+Utilise `--repository propriétaire/dépôt` lors de la construction de l’installateur pour sélectionner le dépôt GitHub qui héberge ces releases.
 
 ## Développement
 
@@ -117,12 +116,13 @@ Il vérifie l’App ID 480, l’identité et le pseudo en jeu, la recherche, la 
 `SourceArt/` conserve les GLB Layer, les scènes Blender éditables, les FBX, les textures, les portraits et les licences. Les modèles et les animations d’Unreal sont dans `Content/Characters/`, les armes dans `Content/Weapons/`, et les meubles du wagon et les machines dans `Content/Props/`. Voir [la provenance des assets](SourceArt/README.md).
 
 - `Scripts/prepare_models.py` et `Scripts/build_props.py` s’exécutent en arrière-plan dans Blender. Les meshes articulés sont normalisés en centimètres, avec un os racine au sol ; les modèles des armes sont exportés avec l’origine sur la poignée.
-- Dans `UnrealEditor-Cmd`, `-run=pythonscript -script=Scripts/import_characters.py` importe les FBX et retargete les clips avec IK Rig et IK Retargeter. Les transitions et les montages sont évalués par le système d’animation d’Unreal. Les armes suivent les os de la main et leur prise est alignée sur les articulations des doigts.
+- Dans `UnrealEditor-Cmd`, `-run=pythonscript -script=Scripts/import_characters.py` importe les FBX et retargete les clips avec IK Rig et IK Retargeter. Ajouter `-TrainConductorOnly` pour refaire uniquement les séquences du conducteur. Ses deux sources sont orientées dans le même axe que son squelette avant transfert. La pose de course place l’arme en retrait ; les transitions et les montages restent évalués par Unreal. Chaque poignée est alignée sur la main à partir de son propre point de prise.
 - `Scripts/rebuild_prototype.py` applique les matériaux, reconstruit les cartes éditables et importe l’audio. Il conserve les anciennes cartes dans `Saved/Checkpoints/Maps`. Les sols répétés sont instanciés et les zones de navigation sont calculées par Recast.
+- `GameplayCharacterLOD` fournit au conducteur et à l’automate un LOD à environ 15 000 triangles pour la caméra de jeu. La texture `/Game/Art/Steel` est redimensionnée à 1024 × 1024 lors de la préparation des données de rendu, avec des mipmaps et la compression standard pour les textures de décor.
 
 `LeDernierTrain.Gameplay.WagonAndRun` vérifie les postes, les achats et passifs, les prises d’arme, les frappes sur mannequin, la poursuite, les deux salles, les statistiques, la santé conservée entre salles et la récompense. Le profil utilisé par ce test est restauré à la fin. `TRAIN_COOP_SMOKE=1 ./Scripts/local-coop.sh 2` lance deux processus en développement, vérifie la connexion et les actions, capture leurs HUD puis quitte. Les rapports se trouvent dans `Saved/LocalCoopSmoke/`.
 
-Pour recapturer les deux armes, l’esquive et les dégâts en jeu avec un profil isolé :
+Pour capturer plusieurs poses de course, de frappe légère et lourde avec chaque arme, ainsi que l’esquive et les dégâts en jeu, avec un profil isolé :
 
 ```sh
 ./Scripts/play.sh /Game/Maps/Wagon -nosteam -TrainLocal -TrainProfile=visual-qa -TrainVisualSmoke -ExecCmds=Train.VisualSmoke

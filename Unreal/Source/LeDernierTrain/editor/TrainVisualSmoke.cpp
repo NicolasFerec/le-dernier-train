@@ -23,10 +23,11 @@ namespace
     struct FVisualSmoke
     {
         double Began=FPlatformTime::Seconds(),Since=Began;
-        int32 Step=0;
+        int32 Step=0,Frame=0;
+        bool bMotionStarted=false;
         TWeakObjectPtr<ATrainEnemy> Enemy;
         float Health=100;
-        void Next() { ++Step;Since=FPlatformTime::Seconds(); }
+        void Next() { ++Step;Frame=0;bMotionStarted=false;Since=FPlatformTime::Seconds(); }
         void Pose(ATrainPawn* Pawn,FVector Location,float Yaw=0)
         {
             Pawn->SetActorLocationAndRotation(Location,FRotator(0,Yaw,0),false,nullptr,ETeleportType::TeleportPhysics);
@@ -42,6 +43,11 @@ namespace
             FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("PrototypeCaptures")/Name,true,false);
             UE_LOG(LogTemp,Display,TEXT("Train visual capture: %s"),Name);
         }
+        void CaptureMotion(const TCHAR* Name,double Time,double Start,double Interval,int32 Count)
+        {
+            if (Frame<Count && Time>=Start+Frame*Interval)
+                Capture(*FString::Printf(TEXT("%s-%02d.png"),Name,++Frame));
+        }
         bool Tick(float Delta)
         {
             UWorld* W=nullptr;for (const auto& C:GEngine->GetWorldContexts()) if (C.WorldType==EWorldType::Game) W=C.World();
@@ -52,20 +58,51 @@ namespace
             if (!W || !Pawn || !PS) return true;
             const FString Map=UGameplayStatics::GetCurrentLevelName(W);
             auto* ASC=Pawn->GetAbilitySystemComponent();
-            if (Step==0 && Map==TEXT("Wagon") && Time>.5) { Pose(Pawn,FVector(-1450,100,95),225);Next(); }
+            if (Step==0 && Map==TEXT("Wagon") && Time>1.5) { Pose(Pawn,FVector(-1450,100,95),225);Next(); }
             else if (Step==1 && Time>.85) { Capture(TEXT("wagon-arsenal-final.png"));Next(); }
             else if (Step==2 && Time>.2) { Pose(Pawn,FVector(900,-180,95));Move(PC,true);Next(); }
-            else if (Step==3 && Time>.55) { Capture(TEXT("conducteur-course-sabre.png"));Next(); }
+            else if (Step==3) { CaptureMotion(TEXT("conducteur-course-sabre"),Time,.25,.14,6);if (Time>1.10) Next(); }
             else if (Step==4 && Time>.25) { Move(PC,false);Pose(Pawn,FVector(1200,-230,95));Next(); }
             else if (Step==5 && Time>.55) { Pose(Pawn,FVector(1200,-230,95));ASC->TryActivateAbilityByClass(UTrainLightAttack::StaticClass());Next(); }
-            else if (Step==6 && Time>.26) { Capture(TEXT("conducteur-frappe-sabre.png"));Next(); }
-            else if (Step==7 && Time>.65) { Pawn->ServerLoadout(0,1,false,false);Pose(Pawn,FVector(900,-180,95));Move(PC,true);Next(); }
-            else if (Step==8 && Time>.55) { Capture(TEXT("conducteur-course-marteau.png"));Next(); }
+            else if (Step==6) { CaptureMotion(TEXT("conducteur-sabre-legere"),Time,.06,.09,4);if (Time>.8) Next(); }
+            else if (Step==7)
+            {
+                if (!bMotionStarted) bMotionStarted=ASC->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass());
+                CaptureMotion(TEXT("conducteur-sabre-lourde"),Time,.06,.12,6);if (Time>1.05) Next();
+            }
+            else if (Step==8)
+            {
+                if (!bMotionStarted) { Pawn->ServerLoadout(0,1,false,false);Pose(Pawn,FVector(900,-180,95));Move(PC,true);bMotionStarted=true; }
+                CaptureMotion(TEXT("conducteur-course-marteau"),Time,.25,.14,6);if (Time>1.1) Next();
+            }
             else if (Step==9 && Time>.25) { Move(PC,false);Pose(Pawn,FVector(1200,-230,95));Next(); }
-            else if (Step==10 && Time>.55) { ASC->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass());Next(); }
-            else if (Step==11 && Time>.36) { Capture(TEXT("conducteur-frappe-marteau.png"));Next(); }
-            else if (Step==12 && Time>.8) { Pose(Pawn,FVector(1175,-150,95),45);ASC->TryActivateAbilityByClass(UTrainDash::StaticClass());Next(); }
-            else if (Step==13 && Time>.19) { Capture(TEXT("conducteur-esquive.png"));Next(); }
+            else if (Step==10 && Time>.55) { ASC->TryActivateAbilityByClass(UTrainLightAttack::StaticClass());Next(); }
+            else if (Step==11) { CaptureMotion(TEXT("conducteur-marteau-legere"),Time,.06,.10,5);if (Time>.9) Next(); }
+            else if (Step==12)
+            {
+                if (!bMotionStarted) bMotionStarted=ASC->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass());
+                CaptureMotion(TEXT("conducteur-marteau-lourde"),Time,.06,.12,6);if (Time>1.05) Next();
+            }
+            else if (Step==13)
+            {
+                if (!bMotionStarted)
+                {
+                    Pose(Pawn,FVector(1180,-230,95));
+                    bMotionStarted=ASC->TryActivateAbilityByClass(UTrainDash::StaticClass());
+                }
+                CaptureMotion(TEXT("conducteur-esquive"),Time,.04,.07,5);
+                if (Time>.75)
+                {
+                    const double X = Pawn->GetActorLocation().X;
+                    if (X < 1230 || X > 1290)
+                    {
+                        UE_LOG(LogTemp, Error, TEXT("Dash did not move and stop at the practice target (X=%.1f)"), X);
+                        FPlatformMisc::RequestExitWithStatus(false,1);
+                        return false;
+                    }
+                    Next();
+                }
+            }
             else if (Step==14 && Time>.65) { W->ServerTravel(TEXT("/Game/Maps/Pompage"));Next(); }
             else if (Step==15 && Map==TEXT("Pompage") && Time>.75)
             {
@@ -96,6 +133,20 @@ namespace
         {
             if (!IsRunningGame() || !FParse::Param(FCommandLine::Get(),TEXT("TrainVisualSmoke"))) return;
             auto Test=MakeShared<FVisualSmoke>();FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Test](float Delta){return Test->Tick(Delta);}));
+        }));
+    FAutoConsoleCommandWithWorldAndArgs PerfView(TEXT("Train.PerfView"),
+        TEXT("Development profiling: fix the player's position (X Y [Yaw])."),
+        FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+        {
+            if (!IsRunningGame() || !FParse::Param(FCommandLine::Get(), TEXT("TrainPerf")) || Args.Num() < 2) return;
+            auto* Controller = World ? World->GetFirstPlayerController() : nullptr;
+            auto* Pawn = Controller ? Cast<ATrainPawn>(Controller->GetPawn()) : nullptr;
+            if (!Pawn) return;
+            Controller->SetIgnoreMoveInput(true);
+            Pawn->GetCharacterMovement()->StopMovementImmediately();
+            const float Yaw = Args.Num() > 2 ? FCString::Atof(*Args[2]) : 0.f;
+            Pawn->SetActorLocationAndRotation(FVector(FCString::Atof(*Args[0]), FCString::Atof(*Args[1]), 95),
+                FRotator(0, Yaw, 0), false, nullptr, ETeleportType::TeleportPhysics);
         }));
 }
 #endif

@@ -2,10 +2,12 @@
 Run in UnrealEditor-Cmd with -run=pythonscript. Existing maps are backed up in Saved/Checkpoints.
 """
 from pathlib import Path
-import shutil,math
+import shutil,math,sys
 import unreal as ue
 ROOT=Path(ue.Paths.convert_relative_path_to_full(ue.Paths.project_dir()))
-exec((ROOT/'Scripts/import_characters.py').read_text().split('source=fbx(')[0])
+sys.path.insert(0,str(ROOT/'Scripts'))
+from import_characters import AS, AT, fbx, texture
+from style_wagon import apply as style_wagon
 LEVELS=ue.get_editor_subsystem(ue.LevelEditorSubsystem)
 ACTORS=ue.get_editor_subsystem(ue.EditorActorSubsystem)
 LIB=ue.MaterialEditingLibrary
@@ -181,6 +183,7 @@ for x,y in [(1350,-230),(1600,150),(1850,-230)]:
 for x in [-2700,-1800,-900,0,900,1800,2700]:
     for y in [-570,570]:
         mesh('Conduite de chauffage',(x,y,32),(690,9,9),copper,collision=False)
+style_wagon()
 ue.TrainWorldAuthoring.build_navigation(LEVELS.get_current_level(),ue.Vector(3000,650,300))
 LEVELS.save_current_level()
 

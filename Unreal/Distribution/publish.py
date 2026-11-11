@@ -1,4 +1,4 @@
-"""Publish both platform archives and setup files after their builds complete."""
+"""Publish the archives and installers for the platforms built by the workflow."""
 
 import argparse
 import json
@@ -32,19 +32,15 @@ def assert_assets(tag, required):
 
 def prune_dev():
     expression = re.compile(rf'{PRODUCT}-dev-([0-9.]+)-(linux|windows)-x86_64\.zip\Z')
-    names = {}
+    builds = {platform: [] for platform in PLATFORMS}
     for asset in release_assets(DEV_TAG):
-        name = asset['name']
-        match = expression.fullmatch(name)
-        if match and VERSION['dev'].fullmatch(match[1]):
-            names.setdefault(match[1], []).append(name)
-    # Keep two complete builds so a launcher that already selected the previous one can finish.
-    complete = [version for version, files in names.items() if len(files) == len(PLATFORMS)]
-    retained = set(sorted(complete, key=lambda v: version_key('dev', v))[-2:])
-    for version, files in names.items():
-        if version not in retained:
-            for name in files:
-                gh('release', 'delete-asset', DEV_TAG, name, '--yes')
+        match = expression.fullmatch(asset['name'])
+        if match and VERSION['dev'].fullmatch(match[1]) and asset['state'] == 'uploaded':
+            builds[match[2]].append((match[1], asset['name']))
+    # Keep the current and previous archive independently for each platform.
+    for files in builds.values():
+        for _, name in sorted(files, key=lambda item: version_key('dev', item[0]))[:-2]:
+            gh('release', 'delete-asset', DEV_TAG, name, '--yes')
 
 
 def publish_dev(version, files, existing, commit, current_main):
@@ -67,20 +63,30 @@ def publish_dev(version, files, existing, commit, current_main):
 
 
 def publish_stable(tag, files, existing):
-    previous = next((release['tagName'] for release in existing if release['isLatest']), None)
-    if previous and VERSION['stable'].fullmatch(previous) and version_key('stable', tag) <= version_key('stable', previous):
-        raise ValueError(f'{tag} must be newer than the current stable release {previous}')
-    draft = next((release for release in existing if release['tagName'] == tag), None)
-    if draft and (not draft['isDraft'] or draft['isPrerelease']):
-        raise ValueError(f'{tag} is already published or is a prerelease')
-    if not draft:
+    release = next((item for item in existing if item['tagName'] == tag), None)
+    if release and release['isPrerelease']:
+        raise ValueError(f'{tag} is a prerelease')
+    already_published = release and not release['isDraft']
+    previous = next((item['tagName'] for item in existing if item['isLatest']), None)
+    if not already_published and previous and VERSION['stable'].fullmatch(previous):
+        if version_key('stable', tag) <= version_key('stable', previous):
+            raise ValueError(f'{tag} must be newer than the current stable release {previous}')
+    if not release:
         args = ['--verify-tag', '--draft', '--generate-notes', '--title', f'Le Dernier Train {tag}']
         if previous:
             args.extend(('--notes-start-tag', previous))
         gh('release', 'create', tag, *args)
     gh('release', 'upload', tag, *(str(file) for file in files), '--clobber')
     assert_assets(tag, files)
-    gh('release', 'edit', tag, '--draft=false', '--latest')
+    if release:
+        notes = gh('release', 'view', tag, '--json', 'body', '--jq', '.body', capture=True)
+        if not notes:
+            notes = gh('api', '--method', 'POST',
+                       f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/generate-notes',
+                       '-f', f'tag_name={tag}', '--jq', '.body', capture=True)
+            gh('release', 'edit', tag, '--notes', notes)
+    if not already_published:
+        gh('release', 'edit', tag, '--draft=false', '--latest')
 
 
 def main():
@@ -88,12 +94,17 @@ def main():
     parser.add_argument('channel', choices=('stable', 'dev'))
     parser.add_argument('version')
     parser.add_argument('artifacts', type=Path)
+    parser.add_argument('--platform', action='append', choices=PLATFORMS, required=True)
     args = parser.parse_args()
-    names = [asset_name(args.channel, args.version, system) for system in PLATFORMS]
-    names += ['Le-Dernier-Train-Setup-Linux-x86_64.run', 'Le-Dernier-Train-Setup-Windows-x86_64.exe']
-    files = [args.artifacts / name for name in names]
-    if any(not file.is_file() for file in files):
-        raise ValueError('Both game archives and both installers must be present before publishing')
+    installers = {
+        'linux': 'Le-Dernier-Train-Setup-Linux-x86_64.run',
+        'windows': 'Le-Dernier-Train-Setup-Windows-x86_64.exe',
+    }
+    files = [args.artifacts / name for platform in args.platform
+             for name in (asset_name(args.channel, args.version, platform), installers[platform])]
+    missing = [file.name for file in files if not file.is_file()]
+    if missing:
+        raise ValueError(f'Missing release artifacts: {", ".join(missing)}')
     if args.channel == 'dev':
         commit = os.environ['GITHUB_SHA']
         remote = subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/main'], text=True)
