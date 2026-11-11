@@ -22,15 +22,14 @@ def bundle(contents=b'game'):
     return data.getvalue()
 
 
-def entry(channel, version, platform, data):
-    return {'name': update.asset_name(channel, version, platform), 'state': 'uploaded',
+def entry(version, platform, data):
+    return {'name': update.asset_name(version, platform), 'state': 'uploaded',
             'size': len(data), 'digest': 'sha256:' + hashlib.sha256(data).hexdigest()}
 
 
-def release(channel, version, data):
-    return {'tag_name': update.DEV_TAG if channel == 'dev' else version,
-            'prerelease': channel == 'dev', 'draft': False,
-            'assets': [entry(channel, version, platform, data) for platform in update.PLATFORMS]}
+def release(version, data):
+    return {'tag_name': version, 'prerelease': False, 'draft': False,
+            'assets': [entry(version, platform, data) for platform in update.PLATFORMS]}
 
 
 class UpdateTests(unittest.TestCase):
@@ -48,31 +47,30 @@ class UpdateTests(unittest.TestCase):
             return io.BytesIO(archive)
         return patch.object(update.HTTP, 'open', side_effect=reply)
 
-    def test_install_upgrade_and_separate_dev(self):
-        for channel, version, code in [('stable', 'v0.2.0', b'old'), ('stable', 'v0.2.1', b'new'),
-                                       ('dev', '102.1', b'dev')]:
+    def test_install_and_upgrade_stable(self):
+        for version, code in [('v0.2.0', b'old'), ('v0.2.1', b'new')]:
             archive = bundle(code)
             progress = []
-            with self.serve(release(channel, version, archive), archive):
-                directory = self.installation.update(update.DEFAULT_REPO, channel,
+            with self.serve(release(version, archive), archive):
+                directory = self.installation.update(update.DEFAULT_REPO,
                                                      lambda stage, value: progress.append(stage))
             self.assertEqual(progress, ['check', 'download', 'download', 'install'])
             self.assertEqual((directory / update.ENTRIES['linux']).read_bytes(), code)
-            self.assertEqual(self.installation.current(channel)[0], version)
-        self.assertEqual(self.installation.current('stable')[0], 'v0.2.1')
+            self.assertEqual(self.installation.current()[0], version)
+        self.assertEqual(self.installation.current()[0], 'v0.2.1')
         self.assertFalse((self.directory / 'incoming').exists())
 
     def test_bad_update_keeps_previous_version(self):
         first = bundle(b'first')
-        with self.serve(release('stable', 'v0.2.0', first), first):
-            previous = self.installation.update(update.DEFAULT_REPO, 'stable', lambda *_: None)
-        with self.serve(release('stable', 'v0.2.1', bundle(b'second')), bundle(b'broken')):
+        with self.serve(release('v0.2.0', first), first):
+            previous = self.installation.update(update.DEFAULT_REPO, lambda *_: None)
+        with self.serve(release('v0.2.1', bundle(b'second')), bundle(b'broken')):
             with self.assertRaises(ValueError):
-                self.installation.update(update.DEFAULT_REPO, 'stable', lambda *_: None)
+                self.installation.update(update.DEFAULT_REPO, lambda *_: None)
         with patch.object(update.HTTP, 'open', side_effect=TimeoutError):
             with self.assertRaises(TimeoutError):
-                self.installation.update(update.DEFAULT_REPO, 'stable', lambda *_: None)
-        self.assertEqual(self.installation.current('stable')[2], previous)
+                self.installation.update(update.DEFAULT_REPO, lambda *_: None)
+        self.assertEqual(self.installation.current()[2], previous)
         self.assertEqual((previous / update.ENTRIES['linux']).read_bytes(), b'first')
         self.assertFalse((self.directory / 'incoming').exists())
 
@@ -87,34 +85,39 @@ class UpdateTests(unittest.TestCase):
             }), encoding='utf-8')
             with patch.object(update.HTTP, 'open', side_effect=AssertionError('Network used during bootstrap')):
                 self.installation.bootstrap(self.installation.bootstrap_asset(), lambda *_: None)
-            current = self.installation.current('stable')
+            current = self.installation.current()
             self.assertEqual(current[0], 'v0.2.1')
             self.assertEqual((current[2] / update.ENTRIES['linux']).read_bytes(), b'new')
             self.assertFalse((self.directory / 'bootstrap.zip').exists())
 
-    def test_stale_dev_feed_does_not_downgrade(self):
+    def test_stale_stable_feed_does_not_downgrade(self):
         archive = bundle()
-        with self.serve(release('dev', '102.1', archive), archive):
-            previous = self.installation.update(update.DEFAULT_REPO, 'dev', lambda *_: None)
-        with self.serve(release('dev', '101.1', archive), archive) as http:
-            self.assertEqual(self.installation.update(update.DEFAULT_REPO, 'dev', lambda *_: None), previous)
+        with self.serve(release('v0.2.1', archive), archive):
+            previous = self.installation.update(update.DEFAULT_REPO, lambda *_: None)
+        with self.serve(release('v0.2.0', archive), archive) as http:
+            self.assertEqual(self.installation.update(update.DEFAULT_REPO, lambda *_: None), previous)
             self.assertEqual(http.call_count, 1)
 
-    def test_dev_updates_are_selected_per_platform(self):
+    def test_stable_release_requires_only_the_requested_platform(self):
         archive = bundle()
-        metadata = release('dev', '102.1', archive)
-        metadata['assets'].append(entry('dev', '103.1', 'linux', archive))
-        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'linux').version, '103.1')
-        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'windows').version, '102.1')
-        metadata['assets'].append(entry('dev', '103.1', 'windows', archive))
-        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'windows').version, '103.1')
+        metadata = release('v0.2.1', archive)
+        metadata['assets'] = [entry('v0.2.1', 'linux', archive)]
+        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'linux').version, 'v0.2.1')
+        with self.assertRaises(ValueError):
+            update.select_asset(metadata, update.DEFAULT_REPO, 'windows')
+
+    def test_ignore_prerelease(self):
+        metadata = release('v0.2.1', bundle())
+        metadata['prerelease'] = True
+        with self.assertRaises(ValueError):
+            update.select_asset(metadata, update.DEFAULT_REPO, 'linux')
 
     def test_reject_other_engine_packages(self):
-        metadata = release('stable', 'v0.1.5', bundle())
+        metadata = release('v0.1.5', bundle())
         for item in metadata['assets']:
             item['name'] = item['name'].replace(update.PRODUCT, 'Le-Dernier-Train')
         with self.assertRaises(ValueError):
-            update.select_asset(metadata, update.DEFAULT_REPO, 'stable', 'windows')
+            update.select_asset(metadata, update.DEFAULT_REPO, 'windows')
 
     def test_archive_never_writes_through_traversal_or_symlink(self):
         for name, kind in [('../escape', stat.S_IFREG), ('escape', stat.S_IFLNK), ('C:/escape', stat.S_IFREG)]:

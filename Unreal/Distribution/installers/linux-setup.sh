@@ -44,12 +44,6 @@ Exec="$exec_path"
 Icon=$icon_path
 Terminal=false
 Categories=Game;
-Actions=UpdateChannel;
-
-[Desktop Action UpdateChannel]
-Name=Canal de mise à jour
-Name[en]=Update channel
-Exec="$exec_path" --settings
 EOF
 if command -v desktop-file-validate >/dev/null 2>&1; then desktop-file-validate "$desktop_tmp"; fi
 chmod 755 "$scratch/LeDernierTrainLauncher" "$scratch/uninstall.sh"

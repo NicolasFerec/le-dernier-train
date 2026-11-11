@@ -1,6 +1,5 @@
-"""Splash screen and update preferences for the installed game."""
+"""Splash screen and updater for the installed game."""
 
-import argparse
 import errno
 import logging
 import queue
@@ -11,7 +10,7 @@ from pathlib import Path
 from tkinter import ttk
 
 from update import (
-    AlreadyRunning, CHANNELS, DEFAULT_REPO, Installation, atomic_write,
+    AlreadyRunning, DEFAULT_REPO, Installation,
     installation_lock, launch_game, state_directory,
 )
 
@@ -20,17 +19,14 @@ PANEL = '#151d27'
 INK = '#f4e6d3'
 COPPER = '#d3a171'
 TEXT = {
-    'channel': ('Canal de mise à jour', 'Update channel'),
-    'stable': ('Stable', 'Stable'),
-    'dev': ('Dev', 'Dev'),
     'check': ('Vérification des mises à jour…', 'Checking for updates…'),
     'download': ('Téléchargement de la mise à jour…', 'Downloading the update…'),
     'install': ('Installation de la mise à jour…', 'Installing the update…'),
     'launch': ('Lancement du jeu…', 'Starting the game…'),
     'fallback': ('Mise à jour indisponible. Lancement de la version installée…',
                  'Update unavailable. Starting the installed version…'),
-    'no_game': ('Aucune version disponible. Vérifie ta connexion ou change de canal.',
-                'No version available. Check your connection or switch channels.'),
+    'no_game': ('Aucune version disponible. Vérifie ta connexion.',
+                'No version available. Check your connection.'),
     'no_space': ('Il manque de la place pour installer le jeu.', 'There is not enough disk space to install the game.'),
     'launch_error': ('Le jeu ne démarre pas. Consulte launcher.log dans le dossier des données.',
                      'The game could not start. See launcher.log in the data directory.'),
@@ -50,14 +46,12 @@ def preference(path, choices, default):
 
 
 class Splash:
-    def __init__(self, root, installation, settings, repo, choose_channel):
+    def __init__(self, root, installation, settings, repo):
         self.root = root
         self.installation = installation
         self.settings = settings
         self.repo = repo
         self.bundled_game = installation.bootstrap_asset()
-        self.channel = preference(settings / 'channel.txt', CHANNELS,
-                                  self.bundled_game.channel if self.bundled_game else 'stable')
         self.language = preference(settings / 'language.txt', ('fr', 'en'), 'fr')
         self.events = queue.SimpleQueue()
         self.process = None
@@ -86,33 +80,19 @@ class Splash:
         style.map('Train.TButton', background=[('active', '#303b46')])
         self.progress = ttk.Progressbar(root, style='Train.Horizontal.TProgressbar', length=590, maximum=100)
         self.progress.place(x=25, y=292)
-        self.channel_label = tk.Label(root, text=self.text('channel'), bg=PANEL, fg=INK)
-        self.channel_label.place(x=25, y=318)
-        self.channel_var = tk.StringVar(value=self.text(self.channel))
-        self.selector = ttk.Combobox(root, values=[self.text(channel) for channel in CHANNELS],
-                                     textvariable=self.channel_var, state='readonly', width=9)
-        self.selector.place(x=180, y=319)
-        self.selector.bind('<<ComboboxSelected>>', self.select_channel)
         self.button = ttk.Button(root, style='Train.TButton', text=self.text('play'), command=self.start)
         self.button.place(x=502, y=316, width=112)
         self.canvas = canvas
-        if not choose_channel:
-            root.after(450, self.start)
+        root.after(450, self.start)
         root.after(50, self.poll)
 
     def text(self, key):
         return TEXT[key][self.language == 'en']
 
-    def select_channel(self, _event):
-        self.channel = CHANNELS[self.selector.current()]
-        atomic_write(self.settings / 'channel.txt', self.channel + '\n')
-        self.canvas.itemconfigure(self.status, text='')
-
     def start(self):
         if self.busy:
             return
         self.busy = True
-        self.selector.configure(state='disabled')
         self.button.configure(state='disabled')
         threading.Thread(target=self.check_updates, daemon=True).start()
 
@@ -124,18 +104,15 @@ class Splash:
         try:
             self.installation.bootstrap(self.bundled_game, progress)
             self.bundled_game = None
-            if not (self.settings / 'channel.txt').exists():
-                atomic_write(self.settings / 'channel.txt', self.channel + '\n')
         except (OSError, ValueError) as error:
             no_space = getattr(error, 'errno', None) in (errno.ENOSPC, getattr(errno, 'EDQUOT', -1))
             logging.exception('Unable to install the bundled game')
         try:
-            game = self.installation.update(self.repo, self.channel, progress)
+            game = self.installation.update(self.repo, progress)
             self.events.put(('ready', game, False))
         except Exception as error:
-            logging.exception('Unable to update channel %s', self.channel)
-            other = 'dev' if self.channel == 'stable' else 'stable'
-            installed = self.installation.current(self.channel) or self.installation.current(other)
+            logging.exception('Unable to update the game')
+            installed = self.installation.current()
             if installed:
                 self.events.put(('ready', installed[2], True))
             else:
@@ -160,7 +137,6 @@ class Splash:
         self.busy = False
         self.canvas.itemconfigure(self.status, text=self.text(message))
         self.progress.configure(value=0)
-        self.selector.configure(state='readonly')
         self.button.configure(text=self.text('retry'), state='normal')
 
     def play(self, game):
@@ -185,9 +161,6 @@ class Splash:
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--settings', action='store_true')
-    args = parser.parse_args()
     settings = state_directory()
     settings.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(filename=settings / 'launcher.log', filemode='w', encoding='utf-8', level=logging.INFO)
@@ -199,7 +172,7 @@ def main():
     try:
         with installation_lock(root):
             window = tk.Tk()
-            splash = Splash(window, Installation(root, platform), settings, repo, args.settings)
+            splash = Splash(window, Installation(root, platform), settings, repo)
             window.mainloop()
             if splash.process:
                 return splash.process.wait()

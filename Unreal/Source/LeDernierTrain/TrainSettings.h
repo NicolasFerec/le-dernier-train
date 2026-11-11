@@ -12,8 +12,6 @@ public:
     static UTrainSettings* Get();
     virtual void SetToDefaults() override;
     virtual void SaveSettings() override;
-    FString GetUpdateChannel() const;
-    void SetUpdateChannel(const FString& Channel);
     void SetLanguage(const FString& NewLanguage, UWorld* World);
     void ApplyRuntime(UWorld* World, bool bMenu);
     float GetGameLimit() const;

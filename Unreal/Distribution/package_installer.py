@@ -34,13 +34,13 @@ def build_launcher(scratch, repo):
 
 def bootstrap(game, scratch):
     platform = 'windows' if WINDOWS else 'linux'
-    match = re.fullmatch(rf'{PRODUCT}-(stable|dev)-(.+)-{platform}-x86_64\.zip', game.name)
-    if not match or not VERSION[match[1]].fullmatch(match[2]):
+    match = re.fullmatch(rf'{PRODUCT}-stable-(.+)-{platform}-x86_64\.zip', game.name)
+    if not match or not VERSION.fullmatch(match[1]):
         raise ValueError(f'Expected a {platform} Shipping archive from package_game.py')
     with game.open('rb') as file:
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
     metadata = scratch / 'bootstrap.json'
-    metadata.write_text(json.dumps({'channel': match[1], 'version': match[2], 'platform': platform,
+    metadata.write_text(json.dumps({'channel': 'stable', 'version': match[1], 'platform': platform,
                                     'size': game.stat().st_size, 'sha256': digest}), encoding='utf-8')
     return metadata
 

@@ -391,17 +391,6 @@ TSharedRef<SWidget> UTrainMenu::BuildSettings()
             FText::FromString(Settings->KeyboardLayout == 2 ? TEXT("QWERTY · WASD") : TEXT("AZERTY · ZQSD")),
             { { FText::FromString(TEXT("AZERTY · ZQSD")), [this, Settings]() { Settings->KeyboardLayout = 1; Settings->SaveSettings(); Refresh(); } },
               { FText::FromString(TEXT("QWERTY · WASD")), [this, Settings]() { Settings->KeyboardLayout = 2; Settings->SaveSettings(); Refresh(); } } }));
-        const FString Channel = Settings->GetUpdateChannel();
-        if (!Channel.IsEmpty())
-        {
-            Row(T(TEXT("Canal de mise à jour"), TEXT("Update channel")),
-                Select(FText::FromString(Channel == TEXT("dev") ? TEXT("Dev") : TEXT("Stable")),
-                    { { FText::FromString(TEXT("Stable")), [this, Settings]() { Settings->SetUpdateChannel(TEXT("stable")); Refresh(); } },
-                      { FText::FromString(TEXT("Dev")), [this, Settings]() { Settings->SetUpdateChannel(TEXT("dev")); Refresh(); } } }));
-            Rows->AddSlot().AutoHeight().Padding(0, 15)[Label(T(
-                TEXT("Ce choix s’applique au prochain lancement."),
-                TEXT("This choice applies the next time you start the game.")), 13)];
-        }
     }
     else
     {

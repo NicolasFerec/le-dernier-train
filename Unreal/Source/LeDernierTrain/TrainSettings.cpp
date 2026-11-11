@@ -38,23 +38,6 @@ void UTrainSettings::SaveSettings()
             *FPaths::Combine(Directory, TEXT("language.txt")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 }
 
-FString UTrainSettings::GetUpdateChannel() const
-{
-    const FString Directory = FPlatformMisc::GetEnvironmentVariable(TEXT("TRAIN_LAUNCHER_SETTINGS"));
-    if (Directory.IsEmpty()) return {};
-    FString Channel;
-    FFileHelper::LoadFileToString(Channel, *FPaths::Combine(Directory, TEXT("channel.txt")));
-    return Channel.TrimStartAndEnd() == TEXT("dev") ? TEXT("dev") : TEXT("stable");
-}
-
-void UTrainSettings::SetUpdateChannel(const FString& Channel)
-{
-    const FString Directory = FPlatformMisc::GetEnvironmentVariable(TEXT("TRAIN_LAUNCHER_SETTINGS"));
-    if (Directory.IsEmpty() || (Channel != TEXT("stable") && Channel != TEXT("dev"))) return;
-    FFileHelper::SaveStringToFile(Channel + TEXT("\n"), *FPaths::Combine(Directory, TEXT("channel.txt")),
-        FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
-}
-
 void UTrainSettings::SetLanguage(const FString& NewLanguage, UWorld* World)
 {
     Language = NewLanguage;
