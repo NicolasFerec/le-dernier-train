@@ -53,16 +53,14 @@ python Distribution/package_installer.py --game Saved/Distribution/Packages/Le-D
 
 Sur Windows, passe le chemin d’Unreal sous Windows et utilise l’archive dont le nom se termine par `-windows-x86_64.zip`. Les archives et installateurs sortent dans `Saved/Distribution/Packages`. Le build démarre l’exécutable Shipping avec `-nullrhi` et attend que le menu charge ses réglages. Les tests de mise à jour se lancent avec `python -m unittest discover -s Distribution -p 'test_*.py'`.
 
-### Activer GitHub Actions
+### Publier les paquets
 
-Le workflow construit le projet dans `Unreal/` depuis le dépôt public GitHub de Le Dernier Train. Le lanceur généré par la CI utilise ce dépôt comme source. La préversion roulante est publiée sous le tag `unreal-dev`. Pour les builds locaux, l’option `--repository propriétaire/dépôt` de `package_installer.py` sélectionne la même source.
+Construis localement depuis le commit de `main` à distribuer. Les fichiers à publier sont le ZIP du jeu et l’installateur de chaque plateforme construite. Le lanceur attend un ZIP Unreal correspondant à son canal et à sa plateforme.
 
-Enregistre un runner Linux x86-64 dédié au dépôt avec le label `unreal-5.8.4`. Installe Unreal Engine 5.8.4, son SDK, Python, Git, Bash et `gh`, puis renseigne `UNREAL_LINUX_ROOT` dans les variables Actions ou `UNREAL_ROOT` dans l’environnement du runner. Pour distribuer Windows, ajoute un runner Windows x64 avec le même label et configure `UNREAL_WINDOWS_ROOT`. Le script Windows utilise les redistribuables d’Unreal ou de Visual Studio. `UNREAL_WINDOWS_APPLOCAL_DIR` permet de fournir une arborescence Unreal alternative.
+- **Stable** suit la dernière release GitHub stable. Crée un tag `vX.Y.Z` sur le commit validé, prépare la release en brouillon avec les notes GitHub générées depuis la stable précédente, puis publie après avoir vérifié les fichiers joints.
+- **Dev** utilise la préversion `unreal-dev`. Publie une archive versionnée et l’installateur correspondant pour chaque plateforme construite.
 
-- **Dev** démarre à chaque push sur `main`. Le workflow prépare les paquets, puis actualise la préversion `unreal-dev`. Le lanceur cherche la dernière archive disponible pour sa plateforme.
-- **Stable** démarre quand une release GitHub stable est publiée avec un tag `vX.Y.Z` issu de `main` après intégration du workflow. GitHub Actions ajoute les archives et installateurs à cette release et génère les notes GitHub si elles sont vides. Il est aussi possible de lancer manuellement `gh workflow run distribution.yml --ref v0.2.0` sur le tag pour construire avant de rendre la release publique.
-
-Les archives et installateurs transitent par un brouillon de distribution supprimé après publication. Si Windows est absent de la configuration, les deux canaux publient leurs paquets Linux. Les PR de distribution exécutent uniquement les tests du lanceur.
+Utilise `--repository propriétaire/dépôt` lors de la construction de l’installateur pour sélectionner le dépôt GitHub qui héberge ces releases.
 
 ## Développement
 
