@@ -439,7 +439,7 @@ void ATrainPawn::ApplyLoadout()
     HeldWeapon->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,Hammer ? TEXT("/Game/Weapons/hammer.hammer"):TEXT("/Game/Weapons/sabre.sabre")));
     HeldWeapon->SetRelativeScale3D(FVector(Hammer?.9f:Character&&Weapon?.55f:.95f));
     const auto& Skeleton=GetMesh()->GetSkeletalMeshAsset()->GetRefSkeleton();
-    auto Grip=[this,&Skeleton](UStaticMeshComponent* Mesh,const TCHAR* Side)
+    auto Grip=[this,&Skeleton](UStaticMeshComponent* Mesh,const TCHAR* Side,const FVector& HandleCenter)
     {
         const FName Hand(*FString::Printf(TEXT("%sHand"),Side));
         const int32 HandIndex=Skeleton.FindBoneIndex(Hand);
@@ -453,19 +453,19 @@ void ATrainPawn::ApplyLoadout()
         const FVector FingerDirection=PalmPoint(TEXT("Middle"));
         const FVector BladeDirection=(PalmPoint(TEXT("Index"))-PalmPoint(TEXT("Pinky"))).GetSafeNormal();
         Mesh->AttachToComponent(GetMesh(),FAttachmentTransformRules::KeepRelativeTransform,Hand);
-        Mesh->SetRelativeLocation(FingerDirection*.65f);
         if (!BladeDirection.IsNearlyZero() && !FingerDirection.IsNearlyZero())
         {
-            FQuat Axes=FRotationMatrix::MakeFromXY(BladeDirection,FingerDirection).ToQuat();
-            const FVector Bounds=Mesh->GetStaticMesh()->GetBounds().BoxExtent;
-            if (Bounds.Y>Bounds.X) Axes=Axes*FQuat(FVector::UpVector,-PI/2);
+            // Both imported weapons point along +X; their handles have different pivots.
+            const FQuat Axes=FRotationMatrix::MakeFromXY(BladeDirection,FingerDirection).ToQuat();
             Mesh->SetRelativeRotation(Axes);
+            Mesh->SetRelativeLocation(FingerDirection*.65f-Axes.RotateVector(HandleCenter*Mesh->GetRelativeScale3D()));
         }
     };
-    Grip(HeldWeapon,TEXT("Right"));
+    const FVector SabreHandle(0,7,-3);
+    Grip(HeldWeapon,TEXT("Right"),Hammer?FVector::ZeroVector:SabreHandle);
     OffhandWeapon->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Weapons/sabre.sabre")));
     OffhandWeapon->SetRelativeScale3D(FVector(.55f));OffhandWeapon->SetVisibility(Character==1&&Weapon==1);
-    Grip(OffhandWeapon,TEXT("Left"));
+    Grip(OffhandWeapon,TEXT("Left"),SabreHandle);
 
 }
 void ATrainPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -512,9 +512,8 @@ void ATrainPawn::MulticastSwing_Implementation(bool Heavy,FRotator Direction)
     const TCHAR* Track=Heavy?TEXT("heavy_swing"):Character&&Weapon?TEXT("dagger_swing"):TEXT("blade_swing");
     if (auto* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Track,Track))) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation());
 }
-void ATrainPawn::MulticastDodge_Implementation()
+void ATrainPawn::MulticastDashSound_Implementation()
 {
-    if (auto* Anim=Cast<UTrainAnimInstance>(GetMesh()->GetAnimInstance())) Anim->Action(TEXT("Dodge"),.6f);
     if (auto* Sound=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/dash.dash"))) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation());
 }
 void ATrainPawn::MulticastDamage_Implementation(float Damage,bool Dead)

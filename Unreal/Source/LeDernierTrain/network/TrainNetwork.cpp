@@ -411,7 +411,16 @@ ATrainDummy::ATrainDummy()
     bReplicates=true;
     GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
     GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Props/TrainingDummy.TrainingDummy")));
-    SetActorEnableCollision(false);
+    GetStaticMeshComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    auto* Body = CreateDefaultSubobject<UCapsuleComponent>(TEXT("PracticeTargetBody"));
+    Body->SetupAttachment(GetRootComponent());
+    Body->InitCapsuleSize(38.f, 77.f);
+    Body->SetRelativeLocation(FVector(0, 0, 77.f));
+    Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    Body->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Body->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+    Body->SetGenerateOverlapEvents(false);
+    Body->SetCanEverAffectNavigation(false);
 }
 void ATrainDummy::Hit(float Damage) { if (HasAuthority()) MulticastHit(Damage); }
 void ATrainDummy::MulticastHit_Implementation(float Damage)

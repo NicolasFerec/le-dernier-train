@@ -1,8 +1,18 @@
 # Le Dernier Train
 
-Le chantier actif est le [prototype Unreal](Unreal/README.md). La [vision du jeu](VISION.md) décrit la boucle cible, la progression et la direction artistique.
+Le Dernier Train est un roguelite d’action en 3D isométrique développé sous Unreal Engine. La [vision du jeu](VISION.md) décrit la boucle cible, la progression et la direction artistique.
 
-## Prototype Godot
+## Version Unreal
+
+Ouvre `Unreal/LeDernierTrain.uproject` avec Unreal Engine 5.8.4. Sous Linux, lance directement le jeu de développement depuis la racine du dépôt.
+
+```sh
+./Unreal/Scripts/play.sh
+```
+
+Le [guide Unreal](Unreal/README.md) couvre la compilation locale, la coop et les installateurs. Les anciennes releases Godot restent disponibles sur GitHub.
+
+## Prototype historique Godot
 
 Prototype d’action 2D en GDScript pour Godot 4.7.2 Standard.
 Voir la [vision du jeu](VISION.md) pour la boucle cible, la progression et les priorités du prototype.
@@ -31,13 +41,13 @@ La coop utilise [netfox 1.35.3](https://github.com/foxssake/netfox/releases/tag/
 
 Le salon et les missions partagent la caméra isométrique et les [personnages articulés en 2D](player/character_visual.gd). Les décors des missions sont dessinés dans [la scène de salle](arena/mission/mission_room.tscn).
 
-## Réglages
+### Réglages
 
 Depuis le menu principal, **Réglages** permet de modifier les trois volumes, le plein écran, la résolution de rendu en plein écran, la VSync, le compteur d’IPS et la limite d’IPS en jeu. **Retour** enregistre ces réglages localement. En plein écran, la liste propose la résolution native et des résolutions courantes au même format. Le jeu adapte le rendu à l’écran sans changer le mode d’affichage du bureau. En mode fenêtré, redimensionne la fenêtre directement. Les menus sont plafonnés à 30 IPS. Le mode **Auto** utilise la fréquence de l’écran ou 60 IPS si elle est inconnue.
 
 Les boucles du dépôt et du wagon combinent une piste musicale et des bruitages d’ambiance. Le curseur **Musique** règle la première, tandis que **Effets** règle les ambiances et les sons des actions. Les pistes et effets originaux sont dans `audio/`.
 
-## Coop Steam
+### Coop Steam
 
 Installe [GodotSteam 4.24 GDExtension](https://codeberg.org/godotsteam/godotsteam/releases/tag/v4.24-gde) en extrayant le dossier `addons/godotsteam` de l’archive à la racine du projet. Lance l’éditeur une fois pour importer l’extension. Les binaires de l’extension sont installés localement et ignorés par Git.
 
@@ -55,11 +65,11 @@ L’App ID **480** correspond à Spacewar, l’application de test publique de S
 
 Le salon Steam est réservé aux amis et accepte les connexions entre les parties.
 
-## Langues
+### Langues
 
 Le jeu démarre en français. Le sélecteur dans **Réglages → Général** permet de passer à l’anglais et mémorise le choix. Les dialogues, l’interface et les messages du jeu utilisent le catalogue `locale/game.csv`. Renseigne les colonnes `fr` et `en` à chaque ajout ou modification de texte.
 
-## Publication et mises à jour
+### Publication et mises à jour
 
 Teste d’abord les changements en local, puis ouvre une PR pour review. Une fois les changements intégrés et la release demandée, pousse le tag correspondant à `application/config/version` dans `project.godot`. Lance ensuite le workflow manuellement sur ce tag, par exemple avec `gh workflow run release.yml --ref v0.1.6`. Le workflow construit les paquets Windows et Linux x86‑64, puis publie les deux lanceurs, le manifeste de mise à jour et le changelog généré par GitHub.
 

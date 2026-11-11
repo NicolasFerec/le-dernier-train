@@ -1,8 +1,12 @@
 #include "TrainDash.h"
 #include "TrainNetwork.h"
 #include "../TrainPrototype.h"
+#include "../character/TrainAnimInstance.h"
 #include "Abilities/Tasks/AbilityTask_ApplyRootMotionConstantForce.h"
 #include "Abilities/Tasks/AbilityTask_WaitDelay.h"
+#include "AbilitySystemComponent.h"
+#include "Animation/AnimSequence.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Character.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -19,8 +23,20 @@ void UTrainDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
     auto* State = Character ? Character->GetWorld()->GetGameState<ATrainGameState>() : nullptr;
     if (!Character || !PS || PS->Health <= 0 || UGameplayStatics::IsGamePaused(Character) || !State || State->RunFinished || !CommitAbility(Handle, ActorInfo, ActivationInfo))
     { EndAbility(Handle, ActorInfo, ActivationInfo, true, true); return; }
-    if (Character->HasAuthority()) { PS->DashReadyAt = State->GetServerWorldTimeSeconds() + .65; PS->ForceNetUpdate(); }
-    if (Character->HasAuthority()) if (auto* Pawn=Cast<ATrainPawn>(Character)) Pawn->MulticastDodge();
+    if (auto* Anim = Cast<UTrainAnimInstance>(Character->GetMesh()->GetAnimInstance()); Anim && Anim->Dodge)
+    {
+        constexpr float PoseDuration = .32f;
+        // The fractional-loop API includes the play count in the replicated montage.
+        ActorInfo->AbilitySystemComponent->PlaySlotAnimationAsDynamicMontage_WithFractionalLoops(
+            this, ActivationInfo, Anim->Dodge, TEXT("DefaultSlot"), .035f, .09f,
+            Anim->Dodge->GetPlayLength() / PoseDuration, 0.f, 1.f);
+    }
+    if (Character->HasAuthority())
+    {
+        PS->DashReadyAt = State->GetServerWorldTimeSeconds() + .65;
+        PS->ForceNetUpdate();
+        if (auto* Pawn = Cast<ATrainPawn>(Character)) Pawn->MulticastDashSound();
+    }
     FVector Direction = Character->GetVelocity().GetSafeNormal2D();
     if (Direction.IsNearlyZero()) Direction = Character->GetActorForwardVector();
     auto* Task = UAbilityTask_ApplyRootMotionConstantForce::ApplyRootMotionConstantForce(this, TEXT("Dodge"), Direction,

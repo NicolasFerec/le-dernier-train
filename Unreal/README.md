@@ -117,12 +117,13 @@ Il vérifie l’App ID 480, l’identité et le pseudo en jeu, la recherche, la 
 `SourceArt/` conserve les GLB Layer, les scènes Blender éditables, les FBX, les textures, les portraits et les licences. Les modèles et les animations d’Unreal sont dans `Content/Characters/`, les armes dans `Content/Weapons/`, et les meubles du wagon et les machines dans `Content/Props/`. Voir [la provenance des assets](SourceArt/README.md).
 
 - `Scripts/prepare_models.py` et `Scripts/build_props.py` s’exécutent en arrière-plan dans Blender. Les meshes articulés sont normalisés en centimètres, avec un os racine au sol ; les modèles des armes sont exportés avec l’origine sur la poignée.
-- Dans `UnrealEditor-Cmd`, `-run=pythonscript -script=Scripts/import_characters.py` importe les FBX et retargete les clips avec IK Rig et IK Retargeter. Les transitions et les montages sont évalués par le système d’animation d’Unreal. Les armes suivent les os de la main et leur prise est alignée sur les articulations des doigts.
+- Dans `UnrealEditor-Cmd`, `-run=pythonscript -script=Scripts/import_characters.py` importe les FBX et retargete les clips avec IK Rig et IK Retargeter. Ajouter `-TrainConductorOnly` pour refaire uniquement les séquences du conducteur. Ses deux sources sont orientées dans le même axe que son squelette avant transfert. La pose de course place l’arme en retrait ; les transitions et les montages restent évalués par Unreal. Chaque poignée est alignée sur la main à partir de son propre point de prise.
 - `Scripts/rebuild_prototype.py` applique les matériaux, reconstruit les cartes éditables et importe l’audio. Il conserve les anciennes cartes dans `Saved/Checkpoints/Maps`. Les sols répétés sont instanciés et les zones de navigation sont calculées par Recast.
+- `GameplayCharacterLOD` fournit au conducteur et à l’automate un LOD à environ 15 000 triangles pour la caméra de jeu. La texture `/Game/Art/Steel` est redimensionnée à 1024 × 1024 lors de la préparation des données de rendu, avec des mipmaps et la compression standard pour les textures de décor.
 
 `LeDernierTrain.Gameplay.WagonAndRun` vérifie les postes, les achats et passifs, les prises d’arme, les frappes sur mannequin, la poursuite, les deux salles, les statistiques, la santé conservée entre salles et la récompense. Le profil utilisé par ce test est restauré à la fin. `TRAIN_COOP_SMOKE=1 ./Scripts/local-coop.sh 2` lance deux processus en développement, vérifie la connexion et les actions, capture leurs HUD puis quitte. Les rapports se trouvent dans `Saved/LocalCoopSmoke/`.
 
-Pour recapturer les deux armes, l’esquive et les dégâts en jeu avec un profil isolé :
+Pour capturer plusieurs poses de course, de frappe légère et lourde avec chaque arme, ainsi que l’esquive et les dégâts en jeu, avec un profil isolé :
 
 ```sh
 ./Scripts/play.sh /Game/Maps/Wagon -nosteam -TrainLocal -TrainProfile=visual-qa -TrainVisualSmoke -ExecCmds=Train.VisualSmoke

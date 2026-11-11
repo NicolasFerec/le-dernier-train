@@ -6,6 +6,7 @@
 #include "../TrainSettings.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -28,7 +29,7 @@ namespace
         double Began=FPlatformTime::Seconds(),Ready=0;
         FVector Before;
         bool Pressed=false,Released=false,Dash=false,Light=false,Heavy=false,Shot=false,Moved=false,Predicted=false,Placed=false,Reported=false;
-        bool Passed = false;
+        bool Passed = false, PredictedDash = false;
         bool Tick(float Delta)
         {
             for (const auto& Context:GEngine->GetWorldContexts()) if (Context.WorldType==EWorldType::Game) World=Context.World();
@@ -55,7 +56,14 @@ namespace
                     Released=true;Moved=FVector::Dist2D(Before,Pawn->GetActorLocation())>50;
                     PC->InputKey(FInputKeyEventArgs::CreateSimulated(UTrainSettings::Get()->Key(TEXT("MoveUp"),false),IE_Released,0));
                 }
-                if (Time>1.5 && !Dash) { Dash=Pawn->GetAbilitySystemComponent()->TryActivateAbilityByClass(UTrainDash::StaticClass()); }
+                if (Time>1.5 && !Dash)
+                {
+                    auto* Abilities = Pawn->GetAbilitySystemComponent();
+                    Dash = Abilities->TryActivateAbilityByClass(UTrainDash::StaticClass());
+                    const auto* Montage = Abilities->GetCurrentMontage();
+                    const auto* Source = Montage ? Montage->GetFirstAnimReference() : nullptr;
+                    PredictedDash = Source && Source->GetFName() == TEXT("Dodge");
+                }
                 if (Time>2.3 && !Light)
                 {
                     Light=Pawn->GetAbilitySystemComponent()->TryActivateAbilityByClass(UTrainLightAttack::StaticClass());
@@ -83,12 +91,14 @@ namespace
                 Reported=true;
                 bool Accepted=false;for (APlayerState* State:GS->PlayerArray)
                     if (auto* PS=Cast<ATrainPlayerState>(State);PS && PS->DashReadyAt>0) Accepted=true;
-                Passed = GS->PlayerArray.Num()==2 && (Host ? Accepted && Moved : Moved && Dash && Light && Heavy && Predicted);
+                Passed = GS->PlayerArray.Num()==2 && (Host ? Accepted && Moved : Moved && Dash && PredictedDash && Light && Heavy && Predicted);
                 const FString Json=FString::Printf(TEXT("{\"role\":\"%s\",\"success\":%s,\"players\":%d,\"moved\":%s,\"dash\":%s,\"light\":%s,\"heavy\":%s,\"predicted_animation\":%s,\"server_accepted_dash\":%s}"),
                     Host?TEXT("host"):TEXT("guest"),Passed?TEXT("true"):TEXT("false"),GS->PlayerArray.Num(),Moved?TEXT("true"):TEXT("false"),Dash?TEXT("true"):TEXT("false"),Light?TEXT("true"):TEXT("false"),Heavy?TEXT("true"):TEXT("false"),Predicted?TEXT("true"):TEXT("false"),Accepted?TEXT("true"):TEXT("false"));
                 const FString Dir=FPaths::ProjectSavedDir()/TEXT("LocalCoopSmoke");IFileManager::Get().MakeDirectory(*Dir,true);
                 FFileHelper::SaveStringToFile(Json,*(Dir/(Host?TEXT("host.json"):TEXT("guest.json"))));
                 UE_LOG(LogTemp,Display,TEXT("TRAIN_LOCAL_COOP_SMOKE %s"),*Json);
+                if (!Host)
+                    UE_LOG(LogTemp, Display, TEXT("Dash montage predicted immediately: %s"), PredictedDash ? TEXT("yes") : TEXT("no"));
             }
             if (Reported)
             {
