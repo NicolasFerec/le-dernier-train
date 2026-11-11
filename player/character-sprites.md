@@ -16,7 +16,7 @@ La course déroule quatre poses par cycle de 73 unités parcourues au sol. L’e
 
 ## Essai dans le wagon peint
 
-L’arsenal est à portée d’interaction dès l’arrivée dans le wagon. Le sabre et le marteau sont disponibles sans dépenser de points pour cet essai. L’Éclaireur, lorsqu’il est débloqué, a également accès à ses deux armes. Rejoindre les mannequins à droite de la travée, puis courir, esquiver et essayer les deux frappes vers le haut à droite (touche Haut) et vers le bas à gauche (touche Bas). Au contact, le mannequin clignote et le conducteur conserve ses points de vie.
+L’arsenal est à portée d’interaction dès l’arrivée dans le wagon. Le sabre et le marteau sont disponibles sans dépenser de points pour cet essai. L’Éclaireur, lorsqu’il est débloqué, a également accès à ses deux armes. Rejoindre les mannequins à droite de la travée, puis courir, esquiver et essayer les deux frappes vers le haut à droite (**Haut + Droite**) et vers le bas à gauche (**Bas + Gauche**). Au contact, le mannequin clignote et le conducteur conserve ses points de vie.
 
 Dans ces deux orientations, `workshop_sabre.png` et `workshop_marteau.png` dessinent l’arme dans chaque pose. Chaque atlas a quatre colonnes et huit rangées. Pour chaque orientation, les rangées sont la course, le dash, la frappe légère et la frappe lourde. La première pose de frappe légère sert aussi de garde. Les six autres orientations utilisent l’atlas précédent. Les [planches ImageGen et le script d’assemblage](../assets/art-source/conductor/workshop/README.md) permettent de refaire les atlas.
 
