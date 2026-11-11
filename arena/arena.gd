@@ -469,8 +469,8 @@ func _physics_process(delta: float) -> void:
 func _read_movement() -> Vector2:
 	if game_paused or run_finished or open_station >= 0:
 		return Vector2.ZERO
-	var movement := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	return Isometric.GROUND.affine_inverse().basis_xform(movement).normalized() * movement.length()
+	# The controls follow the two ground axes. The camera projects them once.
+	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
 
 
 func _movement_bounds() -> Rect2:

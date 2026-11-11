@@ -18,19 +18,20 @@ const GRIPS := preload("res://player/conductor/grips.gd")
 const CELL := Vector2(128, 128)
 const GROUND := Vector2(64, 95)
 const WEAPON_GRIP := Vector2(32, 32)
+const RUN_CYCLE_DISTANCE := 73.0
 const HIT_TIME := 0.18
 const FALL_TIME := 0.24
 
 var pose := Pose.IDLE
 var direction := 0
 var frame := 0
-var _run_time := 0.0
+var _run_phase := 0.0
 var _hit_time := 0.0
 var _fall_time := 0.0
 var _previous_hp := -1
 
 
-func update(actor: Node2D, delta: float) -> void:
+func update(actor: Node2D, delta: float, traveled: float) -> void:
 	if actor.paused:
 		return
 	var facing: Vector2 = actor.render_facing
@@ -64,12 +65,12 @@ func update(actor: Node2D, delta: float) -> void:
 		frame_count = 2
 	elif actor.render_movement != Vector2.ZERO:
 		pose = Pose.RUN
-		_run_time = fposmod(_run_time + delta * 3.0, 1.0)
-		progress = _run_time
+		_run_phase = fposmod(_run_phase + traveled / RUN_CYCLE_DISTANCE, 1.0)
+		progress = _run_phase
 		frame_count = 4
 	else:
 		pose = Pose.IDLE
-		_run_time = 0.0
+		_run_phase = 0.0
 
 	var angle := (Isometric.GROUND * facing).angle()
 	direction = posmod(roundi(angle / (PI / 4)) - 2, 8)
@@ -94,7 +95,9 @@ func draw(canvas: CanvasItem, actor: Node2D) -> void:
 	var angle := facing.angle() - 0.9
 	if pose == Pose.LIGHT or pose == Pose.HEAVY:
 		var edge: float = actor.attack_direction.angle() + actor.swing_offset(actor.swing_progress())
-		var target := Isometric.GROUND * (Vector2(actor.attack_origin - actor.render_position) 			+ Vector2.from_angle(edge) * float(actor.swing_reach())) + Vector2(0, -13)
+		var target: Vector2 = actor.projected_swing_origin() + Isometric.GROUND * (
+			Vector2.from_angle(edge) * float(actor.swing_reach()) - Vector2(actor.render_position)
+		)
 		angle = hand.angle_to_point(target)
 	elif pose == Pose.RUN:
 		angle = deg_to_rad(GRIPS.RUN_ANGLES[direction][frame])

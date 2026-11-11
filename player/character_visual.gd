@@ -15,9 +15,11 @@ var _conductor := ConductorVisual.new()
 var _experiment: Sprite2D
 var _cast_shadow: Sprite2D
 var _contact_shadow: Sprite2D
+var _last_render_position: Vector2
 
 
 func _ready() -> void:
+	_last_render_position = actor.render_position
 	_cast_shadow = _add_shadow(Vector2(74, 25), Vector2(17, 8), 0.84)
 	_cast_shadow.rotation = 0.38
 	_contact_shadow = _add_shadow(Vector2(36, 16), Vector2(0, 1), 0.92)
@@ -44,9 +46,14 @@ func _add_shadow(size: Vector2, center: Vector2, opacity: float) -> Sprite2D:
 
 
 func _process(delta: float) -> void:
+	var traveled := _last_render_position.distance_to(actor.render_position)
+	_last_render_position = actor.render_position
+	# Ignore room changes and other discontinuous moves.
+	if actor.paused or traveled > 48.0:
+		traveled = 0.0
 	if not actor.paused:
 		var moving: bool = actor.render_movement != Vector2.ZERO
-		gait = fmod(gait + delta * 12.0, TAU) if moving else 0.0
+		gait = fposmod(gait + traveled * TAU / 29.0, TAU) if moving else 0.0
 		breathing = fmod(breathing + delta * 3.0, TAU)
 	var projected := Isometric.GROUND * Vector2(actor.render_position)
 	position = projected - actor.position
@@ -55,7 +62,7 @@ func _process(delta: float) -> void:
 	_cast_shadow.modulate.a = 0.6 if dashing else 0.84
 	_contact_shadow.modulate.a = 0.7 if dashing else 0.92
 	if actor.character == 0:
-		_conductor.update(actor, delta)
+		_conductor.update(actor, delta, traveled)
 	if _experiment != null:
 		_experiment.visible = actor.character == 0 and actor.hp > 0 and _conductor.pose in [
 			ConductorVisual.Pose.IDLE, ConductorVisual.Pose.RUN,
@@ -100,9 +107,10 @@ func _draw() -> void:
 	draw_arc(Vector2.ZERO, 15, 0.25, PI - 0.25, 20, team, 2, true)
 	draw_set_transform(Vector2.ZERO)
 	if dashing:
+		var dash_axis := (Isometric.GROUND * Vector2(actor.dash_direction)).normalized()
 		for offset in [0, 6, 12]:
-			var start := Vector2(0, -8 - offset) - facing * 12
-			draw_line(start, start - facing * (30 - offset), Color(team, 0.54), 3, true)
+			var start := Vector2(0, -8 - offset) - dash_axis * 12
+			draw_line(start, start - dash_axis * (30 - offset), Color(team, 0.54), 3, true)
 	if attack > 0:
 		_draw_swing(attack, team, attack_angle + actor.swing_offset(0.0), swing_edge)
 
@@ -179,7 +187,7 @@ func _draw_weapon(hand: Vector2, angle: float, scout: bool) -> void:
 
 
 func _draw_swing(attack: float, color: Color, start_angle: float, edge: float) -> void:
-	var origin := Isometric.GROUND * Vector2(actor.attack_origin - actor.render_position) + Vector2(0, -13)
+	var origin: Vector2 = actor.projected_swing_origin() - Isometric.GROUND * Vector2(actor.render_position)
 	var reach: float = actor.swing_reach()
 	var trail_angle := move_toward(edge, start_angle, 1.25)
 	var opacity := sin(PI * attack)

@@ -74,6 +74,11 @@ func swing_reach() -> float:
 	return reach if heavy_attack else reach * 0.93
 
 
+func projected_swing_origin() -> Vector2:
+	# The visible arc is raised to weapon height above its locked ground origin.
+	return Isometric.GROUND * attack_origin + Vector2(0, -27)
+
+
 func swept_hit(target: Variant, point: Vector2, previous: float, padding := 0.0) -> bool:
 	if attack_hits.has(target):
 		return false

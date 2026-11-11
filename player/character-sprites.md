@@ -12,11 +12,11 @@ Le conducteur utilise un atlas peint avec sept états et huit directions. Les so
 | Prises | `conductor/grips.gd` contient les décalages de main relatifs à l’appui pour chaque pose armée et les angles de port par image de course. |
 | Armes | PNG RGBA séparés. Poignée au point (32, 32), arme orientée vers la droite. |
 
-La course boucle à 12 images par seconde. L’esquive et les frappes suivent la progression de l’action de jeu. La frappe reprend la direction mémorisée au départ du coup, et l’arme vise le bord du balayage utilisé pour les impacts. La prise change avec la pose du corps. Le sabre et le marteau partagent les animations. L’arme est masquée pendant l’esquive, le choc et la chute.
+La course déroule quatre poses par cycle de 73 unités parcourues au sol. L’esquive et les frappes suivent la progression de l’action de jeu. La frappe reprend la direction mémorisée au départ du coup, et l’arme vise le bord du balayage utilisé pour les impacts. La prise change avec la pose du corps. Le sabre et le marteau partagent les animations. L’arme est masquée pendant l’esquive, le choc et la chute.
 
 ## Essai dans le wagon peint
 
-L’arsenal est à portée d’interaction dès l’arrivée dans le wagon. Le sabre et le marteau sont disponibles sans dépenser de points pour cet essai. L’Éclaireur, lorsqu’il est débloqué, a également accès à ses deux armes. Rejoindre les mannequins à droite de la travée, puis courir, esquiver et essayer les deux frappes vers le haut à droite et vers le bas à gauche. Au contact, le mannequin clignote et le conducteur conserve ses points de vie.
+L’arsenal est à portée d’interaction dès l’arrivée dans le wagon. Le sabre et le marteau sont disponibles sans dépenser de points pour cet essai. L’Éclaireur, lorsqu’il est débloqué, a également accès à ses deux armes. Rejoindre les mannequins à droite de la travée, puis courir, esquiver et essayer les deux frappes vers le haut à droite (touche Haut) et vers le bas à gauche (touche Bas). Au contact, le mannequin clignote et le conducteur conserve ses points de vie.
 
 Dans ces deux orientations, `workshop_sabre.png` et `workshop_marteau.png` dessinent l’arme dans chaque pose. Chaque atlas a quatre colonnes et huit rangées. Pour chaque orientation, les rangées sont la course, le dash, la frappe légère et la frappe lourde. La première pose de frappe légère sert aussi de garde. Les six autres orientations utilisent l’atlas précédent. Les [planches ImageGen et le script d’assemblage](../assets/art-source/conductor/workshop/README.md) permettent de refaire les atlas.
 

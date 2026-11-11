@@ -1,22 +1,28 @@
 extends Node2D
 class_name TrainLobby
 
-const FLOOR := Rect2(0, 0, 2460, 520)
-const BOUNDS := Rect2(30, 76, 2400, 408)
-const SPAWNS := [Vector2(830, 181), Vector2(770, 237), Vector2(890, 237), Vector2(830, 287)]
+const FLOOR := Rect2(0, 0, 1560, 360)
+const BOUNDS := Rect2(30, 73, 1500, 251)
+const SPAWNS := [Vector2(480, 149), Vector2(435, 178), Vector2(525, 178), Vector2(480, 220)]
 const DEPARTURE_STATION := 3
 const DEPARTURE_RADIUS := 90.0
 const INVITATION_STATION := 4
 const STATIONS := [
-	[Vector2(310, 119), "CHARACTER_STATION", Color("#63c0bc")],
-	[Vector2(830, 119), "ARSENAL_STATION", Color("#dfad6b")],
-	[Vector2(1125, 119), "PASSIVES_STATION", Color("#b4abeb")],
-	[Vector2(2195, 167), "DEPARTURE_STATION", Color("#8ccfa3")],
-	[Vector2(520, 141), "STEAM_INVITATION_STATION", Color("#8dc2f4")],
+	[Vector2(148, 100), "CHARACTER_STATION", Color("#63c0bc")],
+	[Vector2(480, 105), "ARSENAL_STATION", Color("#dfad6b")],
+	[Vector2(647, 103), "PASSIVES_STATION", Color("#b4abeb")],
+	[Vector2(1370, 161), "DEPARTURE_STATION", Color("#8ccfa3")],
+	[Vector2(310, 105), "STEAM_INVITATION_STATION", Color("#8dc2f4")],
 ]
-const DUMMIES := [Vector2(1515, 226), Vector2(1615, 333), Vector2(1720, 225)]
+const DUMMIES := [Vector2(889, 159), Vector2(972, 257), Vector2(1055, 153)]
+const PRACTICE_AREA := Rect2(814, 108, 318, 200)
+const PRACTICE_LABEL := Vector2(976, 91)
+const WALL_BAY_WIDTH := 390
+const WALL_HEIGHT := 116.0
+const SKIRT_HEIGHT := 32.0
 const FLOOR_TEXTURE := preload("res://arena/train/floor.webp")
 const WALL := preload("res://arena/train/wall.webp")
+const END_WALL := preload("res://arena/train/end_wall.webp")
 const PRACTICE_FLOOR := preload("res://arena/train/practice_floor.webp")
 const RAILWAY := preload("res://arena/train/railway.webp")
 const SKIRT := preload("res://arena/train/skirt.webp")
@@ -27,21 +33,21 @@ const BRASS := Color("#d1a065")
 
 # Furniture is drawn in screen space. Its feet sit on the projected grid.
 const STATION_PROPS := [
-	[preload("res://arena/train/wardrobe.webp"), Vector2(310, 59), 88.0],
-	[preload("res://arena/train/workbench.webp"), Vector2(830, 58), 77.0],
-	[preload("res://arena/train/lectern.webp"), Vector2(1125, 58), 75.0],
-	[preload("res://arena/train/timetable.webp"), Vector2(2195, 100), 100.0],
-	[preload("res://arena/train/telegraph.webp"), Vector2(520, 72), 79.0],
+	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 60), 88.0],
+	[preload("res://arena/train/workbench.webp"), Vector2(480, 61), 77.0],
+	[preload("res://arena/train/lectern.webp"), Vector2(647, 61), 75.0],
+	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 100.0],
+	[preload("res://arena/train/telegraph.webp"), Vector2(310, 63), 79.0],
 ]
 const CRATE := preload("res://arena/train/crate.webp")
 const LANTERN := preload("res://arena/train/lantern.webp")
 const TARGET := preload("res://arena/train/dummy.webp")
 const TARGET_HEIGHT := 74.0
 const IMPACT_DURATION := 0.24
-const CRATES := [Vector2(113, 56), Vector2(694, 55), Vector2(1310, 53), Vector2(2000, 58),
-	Vector2(392, 482), Vector2(1225, 485), Vector2(1870, 482), Vector2(2342, 484)]
-const LANTERNS := [Vector2(86, 474), Vector2(675, 475), Vector2(1380, 65), Vector2(1925, 61),
-	Vector2(2120, 477)]
+const CRATES := [Vector2(66, 51), Vector2(754, 55), Vector2(1168, 57), Vector2(1478, 62),
+	Vector2(222, 334), Vector2(703, 334), Vector2(1225, 333)]
+const LANTERNS := [Vector2(78, 330), Vector2(415, 336), Vector2(807, 63), Vector2(1168, 330),
+	Vector2(1487, 328)]
 
 var _interactable_station := -1
 var impacts := PackedFloat32Array()
@@ -106,25 +112,25 @@ func _notification(what: int) -> void:
 
 
 func _draw() -> void:
-	draw_set_transform_matrix(Isometric.GROUND.translated(Vector2(0, 34)))
+	draw_set_transform_matrix(Isometric.GROUND.translated(Vector2(0, SKIRT_HEIGHT)))
 	# The two tracks run parallel to the carriage on the very same grid as its floor.
-	_draw_band(RAILWAY, Rect2(-1200, 0, 4860, 488), 320.0, Color("#8995a7"))
-	_draw_band(RAILWAY, Rect2(-1200, 488, 4860, 400), 320.0, Color("#8290a3"))
+	_draw_band(RAILWAY, Rect2(-1100, -20, 3760, 348), 320.0, Color("#8995a7"))
+	_draw_band(RAILWAY, Rect2(-1100, 328, 3760, 360), 320.0, Color("#8290a3"))
 	draw_set_transform_matrix(Isometric.GROUND)
-	_draw_band(FLOOR_TEXTURE, Rect2(0, 0, FLOOR.size.x, 260), 492.0, Color("#dec7ae"))
-	_draw_band(FLOOR_TEXTURE, Rect2(0, 260, FLOOR.size.x, 260), 492.0, Color("#dec7ae"))
+	draw_texture_rect(FLOOR_TEXTURE, FLOOR, false)
 	_draw_band(SKIRT, Rect2(0, 0, FLOOR.size.x, 10), 246.0)
-	_draw_band(SKIRT, Rect2(0, 509, FLOOR.size.x, 11), 246.0)
-	draw_texture_rect(PRACTICE_FLOOR, Rect2(1435, 168, 355, 223), false)
+	_draw_band(SKIRT, Rect2(0, FLOOR.end.y - 11, FLOOR.size.x, 11), 246.0)
+	draw_texture_rect(PRACTICE_FLOOR, PRACTICE_AREA, false)
 	_draw_floor_lights()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
-	_draw_side(WALL, Vector2.ZERO, Isometric.GROUND.x, FLOOR.size.x, 141.0, 0.0, 246.0)
+	# Leave the near end open so that the camera can see the walkable floor.
+	_draw_side(END_WALL, Vector2.ZERO, Isometric.GROUND.y, FLOOR.size.y, WALL_HEIGHT, 0.0, FLOOR.size.y)
+	_draw_side(WALL, Vector2.ZERO, Isometric.GROUND.x, FLOOR.size.x, WALL_HEIGHT, 0.0, WALL_BAY_WIDTH)
 	_draw_side(SKIRT, Isometric.GROUND * Vector2(0, FLOOR.size.y), Isometric.GROUND.x,
-		FLOOR.size.x, 34.0, 34.0, 246.0)
-	_draw_side(SKIRT, Vector2.ZERO, Isometric.GROUND.y, FLOOR.size.y, 34.0, 34.0, 260.0)
+		FLOOR.size.x, SKIRT_HEIGHT, SKIRT_HEIGHT, 246.0)
 	_draw_side(SKIRT, Isometric.GROUND * Vector2(FLOOR.size.x, 0), Isometric.GROUND.y,
-		FLOOR.size.y, 34.0, 34.0, 260.0)
+		FLOOR.size.y, SKIRT_HEIGHT, SKIRT_HEIGHT, 260.0)
 
 	for prop in STATION_PROPS:
 		var texture: Texture2D = prop[0]
@@ -137,18 +143,18 @@ func _draw() -> void:
 		_draw_prop_shadow(point, 43.0)
 	for index in STATIONS.size():
 		_draw_station(index)
-	_label(Isometric.GROUND * Vector2(1615, 141) + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
+	_label(Isometric.GROUND * PRACTICE_LABEL + Vector2(0, -24), tr("TRAIN_PRACTICE"), BRASS)
 	var practice_buttons := []
 	for action in ["attack", "heavy_attack", "dodge"]:
 		practice_buttons.append(ControlHints.binding_label(action, ControlHints.using_gamepad, true))
-	_label(Isometric.GROUND * Vector2(1615, 141) + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
+	_label(Isometric.GROUND * PRACTICE_LABEL + Vector2(0, -5), tr("TRAIN_PRACTICE_CONTROLS") % practice_buttons, Color("#f4e0be"), 11)
 
 
 func _draw_floor_lights() -> void:
-	for x in range(61, 2460, 123):
+	for x in range(65, int(FLOOR.size.x), WALL_BAY_WIDTH / 3):
 		draw_texture_rect(LIGHT_POOL, Rect2(Vector2(x - 64, -6), Vector2(128, 185)),
 			false, Color(0.27, 0.54, 0.75, 0.25))
-	for point in [Vector2(830, 110), Vector2(1615, 260), Vector2(2195, 145)]:
+	for point in [STATIONS[1][0], PRACTICE_AREA.get_center(), STATIONS[DEPARTURE_STATION][0]]:
 		draw_texture_rect(LIGHT_POOL, Rect2(point - Vector2(140, 110), Vector2(280, 250)),
 			false, Color(0.92, 0.56, 0.24, 0.39))
 	for point in LANTERNS:
@@ -184,11 +190,11 @@ func _draw_station(index: int) -> void:
 	var title_anchor := Isometric.GROUND * Vector2(prop[1]) - Vector2(0, prop[2] + 8.0)
 	var accent: Color = station[2]
 	var active := index == _interactable_station
-	draw_set_transform_matrix(Isometric.GROUND)
-	var radius := DEPARTURE_RADIUS if index == DEPARTURE_STATION else 16.0
 	if active or index == DEPARTURE_STATION:
+		var radius := DEPARTURE_RADIUS if index == DEPARTURE_STATION else 16.0
+		draw_set_transform_matrix(Isometric.GROUND)
 		draw_arc(station[0], radius, 0, TAU, 48, Color(accent, 0.64 if active else 0.25), 2, true)
-	draw_set_transform_matrix(Transform2D.IDENTITY)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
 	_draw_station_label(index, title_anchor, accent)
 
 
