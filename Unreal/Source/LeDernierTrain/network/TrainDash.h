@@ -8,6 +8,9 @@ class UTrainDash : public UGameplayAbility
 {
     GENERATED_BODY()
 public:
+    static constexpr float LeapDuration = .27f;
+    static constexpr float CooldownDuration = .65f;
+
     UTrainDash();
     virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
         const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;

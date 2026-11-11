@@ -19,14 +19,19 @@ SOURCES = [
     }),
     ('UAL2', 'Quaternius2/UAL2_Standard.fbx', 90, {
         'Light': 'Sword_Regular_A_Rec',
-        'HammerHeavy': 'TreeChopping_Loop', 'Dodge': 'Sword_Dash',
+        'HammerHeavy': 'TreeChopping_Loop',
+    }),
+    ('UAL2Leap', 'Quaternius2/UAL2_Standard.fbx', 90, {
+        'Dodge': 'NinjaJump_Start', 'DodgeLanding': 'NinjaJump_Land',
     }),
 ]
 
 
-def bake(target, import_fbx, make_rig):
+def bake(target, import_fbx, make_rig, bake_clip, only_dodge=False):
     target_rig = make_rig(target, ROOT, 'IK_SK_Conductor')
     for label, file, yaw, clips in SOURCES:
+        if only_dodge and 'Dodge' not in clips:
+            continue
         folder = f'{ROOT}/RetargetSources/{label}'
         source = import_fbx('SourceArt/Animations/' + file, folder, 'SK_' + label, True, True, yaw)
         source_rig = make_rig(source, folder, 'IK_' + label)
@@ -36,54 +41,46 @@ def bake(target, import_fbx, make_rig):
         ctrl = ue.IKRetargeterController.get_controller(rt)
         ctrl.set_ik_rig(ue.RetargetSourceOrTarget.SOURCE, source_rig)
         ctrl.set_ik_rig(ue.RetargetSourceOrTarget.TARGET, target_rig)
+        if only_dodge or label == 'UAL2Leap':
+            ctrl.remove_all_ops()
         ctrl.add_default_ops()
         ctrl.auto_map_chains(ue.AutoMapChainType.EXACT, True)
         ctrl.auto_align_all_bones(ue.RetargetSourceOrTarget.TARGET)
         AS.save_loaded_asset(rt)
         assets = AS.list_assets(folder)
-        used = set()
-        for dest, suffix in clips.items():
-            src = next(p for p in assets if p.rsplit('.', 1)[-1].endswith('_' + suffix))
-            used.add(src)
-            inputs = ue.IKRetargetBatchOperationInputs()
-            inputs.assets_to_retarget = [ue.EditorAssetLibrary.find_asset_data(src)]
-            inputs.source_mesh = source
-            inputs.target_mesh = target
-            inputs.ik_retarget_asset = rt
-            inputs.target_path = ROOT + '/Animations'
-            inputs.overwrite_existing_files = True
-            inputs.include_referenced_assets = False
-            inputs.search = src.rsplit('.', 1)[-1]
-            inputs.replace = dest
-            outputs = ue.IKRetargetBatchOperation.run_batch_retarget(inputs)
-            if len(outputs) != 1 or str(outputs[0].asset_name) != dest:
-                raise RuntimeError(f'Unexpected output baking {dest}: {outputs}')
-            clip = outputs[0].get_asset()
-            clip.set_editor_property('force_root_lock', True)
-            clip.set_editor_property('root_motion_root_lock', ue.RootMotionRootLock.REF_POSE)
-            clip.set_editor_property('enable_root_motion', False)
-            if dest in ('Run', 'HammerHeavy', 'Dodge'):
+        sources = {dest: next(p for p in assets if p.rsplit('.', 1)[-1].endswith('_' + suffix))
+                   for dest, suffix in clips.items()}
+        baked = {}
+        for dest, src in sources.items():
+            clip = bake_clip(source, target, rt, src, ROOT + '/Animations', dest)
+            baked[dest] = clip
+            if dest in ('Run', 'HammerHeavy'):
                 pose_weapon_arm(clip, dest)
-            AS.save_loaded_asset(clip)
-        # Keep the editable source poses and rig for these clips without copying
-        # the entire animation pack a second time into this character's folder.
+            if dest not in ('Dodge', 'DodgeLanding'):
+                AS.save_loaded_asset(clip)
+        if 'Dodge' in baked:
+            pose_weapon_arm(baked['Dodge'], 'Dodge', baked['DodgeLanding'])
+            AS.save_loaded_asset(baked['Dodge'])
+            AS.delete_asset(baked['DodgeLanding'].get_path_name())
+        # Keep editable sources for the clips used by this character.
+        used = set(sources.values())
         for path in assets:
             if path not in used and isinstance(ue.load_asset(path), ue.AnimSequence):
                 AS.delete_asset(path)
     print('TRAIN_CONDUCTOR_BAKED')
 
 
-def dodge_source_phase(phase):
-    # The movement impulse ends halfway through the montage. Trim the prolonged
-    # crouch in the source so the forward step is followed by an immediate recovery.
-    keys = ((0., 0.), (.18, .075), (.48, .25), (.65, .70), (1., 1.))
-    for (start, first), (end, last) in zip(keys, keys[1:]):
-        if phase <= end:
-            return first + (last - first) * (phase - start) / (end - start)
-    return 1.
+def dodge_pose(clip, landing, phase, options):
+    # The capsule supplies the 0.27 s flight. Use the launch poses and hold
+    # the airborne silhouette, then use the landing clip for contact and recovery.
+    if phase < .66:
+        sample = min(1., .05 + phase * 2.5)
+        return POSE.get_anim_pose_at_time(clip, clip.get_play_length() * sample, options)
+    sample = .25 * (phase - .66) / .16 if phase < .82 else .25 + .75 * (phase - .82) / .18
+    return POSE.get_anim_pose_at_time(landing, landing.get_play_length() * sample, options)
 
 
-def pose_weapon_arm(clip, action):
+def pose_weapon_arm(clip, action, landing=None):
     """Retain the source footwork; author the arm carrying the actual game prop."""
     options = ue.AnimPoseEvaluationOptions()
     ref_pose = POSE.get_anim_pose_at_time(clip, 0., options)
@@ -109,8 +106,8 @@ def pose_weapon_arm(clip, action):
     count = ue.AnimationLibrary.get_num_keys(clip)
     for i in range(count):
         phase = i / (count - 1)
-        source_phase = dodge_source_phase(phase) if action == 'Dodge' else phase
-        pose = POSE.get_anim_pose_at_time(clip, clip.get_play_length() * source_phase, options)
+        pose = (dodge_pose(clip, landing, phase, options) if landing else
+                POSE.get_anim_pose_at_time(clip, clip.get_play_length() * phase, options))
         world = lambda bone: POSE.get_bone_pose(pose, bone, space).rotation
         if action in ('Run', 'Dodge'):
             # Small carry swing, with the elbow at the side and the tip outside

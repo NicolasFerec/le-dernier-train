@@ -87,6 +87,8 @@ public:
     void ShowSession();
     void ShowStation(int32 Station);
     void SendLoadout();
+    float MeleeDuration(bool Heavy) const;
+    bool CanDodge() const;
     void PredictMelee(bool Heavy);
     void CancelPredictedMelee();
     void FinishPredictedMelee() { PredictedMelee=false; }
@@ -108,6 +110,7 @@ public:
 
 private:
     void Interact();
+    float MeleeContactTime(bool Heavy) const;
     void Dash();
     void Attack();
     void HeavyAttack();

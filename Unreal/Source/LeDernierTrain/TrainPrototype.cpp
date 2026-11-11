@@ -144,9 +144,11 @@ ATrainPawn::ATrainPawn()
     GetCapsuleComponent()->InitCapsuleSize(24, 46);
     SetNetUpdateFrequency(60); SetMinNetUpdateFrequency(30);
     bUseControllerRotationYaw = false;
-    GetCharacterMovement()->MaxWalkSpeed = 345;
+    GetCharacterMovement()->MaxWalkSpeed = 385;
+    GetCharacterMovement()->MaxAcceleration = 4200;
+    GetCharacterMovement()->BrakingDecelerationWalking = 3400;
     GetCharacterMovement()->bOrientRotationToMovement = true;
-    GetCharacterMovement()->RotationRate = FRotator(0,720,0);
+    GetCharacterMovement()->RotationRate = FRotator(0,1440,0);
     GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
     Abilities = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("Abilities"));
     Abilities->SetIsReplicated(true); Abilities->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
@@ -246,7 +248,8 @@ void ATrainPawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     AttackCooldown = FMath::Max(0.f, AttackCooldown - DeltaSeconds);
     SwingTime = FMath::Max(0.f, SwingTime - DeltaSeconds);
-    GetCharacterMovement()->bOrientRotationToMovement=SwingTime<=0;
+    auto* Movement = GetCharacterMovement();
+    Movement->bOrientRotationToMovement = SwingTime <= 0 && !Movement->GetRootMotionSource(TEXT("Dodge"));
     if (SwingTime>0) SetActorRotation(SwingDirection);
     if (!IsLocallyControlled()) return;
     if (auto* PC=Cast<APlayerController>(GetController()))
@@ -431,7 +434,7 @@ void ATrainPawn::ApplyLoadout()
     if (auto* PS=GetPlayerState<ATrainPlayerState>())
     {
         if (HasAuthority()) { Character=PS->Character;Weapon=PS->Weapon; }
-        GetCharacterMovement()->MaxWalkSpeed=(Character?400:345)*(PS->SpeedUpgrade?1.15f:1.f);
+        GetCharacterMovement()->MaxWalkSpeed=(Character?440:385)*(PS->SpeedUpgrade?1.15f:1.f);
     }
     if (auto* Material=GetMesh()->CreateDynamicMaterialInstance(0))
         Material->SetVectorParameterValue(TEXT("OutfitTint"),Character?FLinearColor(.55f,.9f,1.3f):FLinearColor::White);
@@ -470,7 +473,23 @@ void ATrainPawn::ApplyLoadout()
 }
 void ATrainPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 { Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(ATrainPawn,Character);DOREPLIFETIME(ATrainPawn,Weapon); }
-void ATrainPawn::Dash() { if (!IsMenuOpen() && SwingTime<=0) Abilities->TryActivateAbilityByClass(UTrainDash::StaticClass()); }
+float ATrainPawn::MeleeDuration(bool Heavy) const
+{
+    const bool Hammer = Character == 0 && Weapon == 1;
+    const bool Daggers = Character == 1 && Weapon == 1;
+    if (Hammer) return Heavy ? .82f : .48f;
+    if (Daggers) return Heavy ? .42f : .24f;
+    return Heavy ? .56f : .32f;
+}
+float ATrainPawn::MeleeContactTime(bool Heavy) const
+{
+    return MeleeDuration(Heavy) * (Heavy ? .375f : .35f);
+}
+bool ATrainPawn::CanDodge() const
+{
+    return SwingTime <= 0 && GetCharacterMovement()->IsMovingOnGround();
+}
+void ATrainPawn::Dash() { if (!IsMenuOpen() && CanDodge()) Abilities->TryActivateAbilityByClass(UTrainDash::StaticClass()); }
 void ATrainPawn::Attack() { if (!IsMenuOpen()) Abilities->TryActivateAbilityByClass(UTrainLightAttack::StaticClass()); }
 void ATrainPawn::HeavyAttack() { if (!IsMenuOpen()) Abilities->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass()); }
 void ATrainPawn::PredictMelee(bool Heavy)
@@ -483,12 +502,11 @@ void ATrainPawn::CancelPredictedMelee()
 void ATrainPawn::ServerAttack_Implementation(bool Heavy)
 {
     auto* PS=GetPlayerState<ATrainPlayerState>();auto* GS=GetWorld()->GetGameState<ATrainGameState>();
-    if (!PS || PS->Health<=0 || !GS || GS->RunFinished || AttackCooldown>0 || UGameplayStatics::IsGamePaused(this)) return;
-    const bool Hammer=Character==0 && Weapon==1;
-    AttackCooldown=(Hammer?.62f:Character&&Weapon?.25f:.42f)*(Heavy?1.8f:1.f);
+    if (!PS || PS->Health<=0 || !GS || GS->RunFinished || AttackCooldown>0 || !GetCharacterMovement()->IsMovingOnGround() || UGameplayStatics::IsGamePaused(this)) return;
+    AttackCooldown = MeleeDuration(Heavy);
     const FRotator Direction=GetActorRotation();MulticastSwing(Heavy,Direction);
     // A native montage supplies the motion. Its contact time is shared by authoritative damage.
-    GetWorldTimerManager().SetTimer(StrikeTimer,FTimerDelegate::CreateWeakLambda(this,[this,Heavy,Direction](){ResolveStrike(Heavy,Direction);}),Heavy?.28f:.14f,false);
+    GetWorldTimerManager().SetTimer(StrikeTimer,FTimerDelegate::CreateWeakLambda(this,[this,Heavy,Direction](){ResolveStrike(Heavy,Direction);}),MeleeContactTime(Heavy),false);
 }
 void ATrainPawn::ResolveStrike(bool Heavy,FRotator Direction)
 {
@@ -507,8 +525,10 @@ void ATrainPawn::ResolveStrike(bool Heavy,FRotator Direction)
 void ATrainPawn::MulticastSwing_Implementation(bool Heavy,FRotator Direction)
 {
     if (PredictedMelee && IsLocallyControlled()) { PredictedMelee=false;return; }
-    SwingTime=Heavy?.75f:.4f;SwingDirection=Direction;
-    if (auto* Anim=Cast<UTrainAnimInstance>(GetMesh()->GetAnimInstance())) Anim->Action(Character==0&&Weapon==1?(Heavy?TEXT("HammerHeavy"):TEXT("HammerLight")):(Heavy?TEXT("Heavy"):TEXT("Light")),SwingTime);
+    // Release facing and allow the dodge once the strike has passed contact.
+    SwingTime = MeleeContactTime(Heavy) + .05f;
+    SwingDirection = Direction;
+    if (auto* Anim=Cast<UTrainAnimInstance>(GetMesh()->GetAnimInstance())) Anim->Action(Character==0&&Weapon==1?(Heavy?TEXT("HammerHeavy"):TEXT("HammerLight")):(Heavy?TEXT("Heavy"):TEXT("Light")),MeleeDuration(Heavy));
     const TCHAR* Track=Heavy?TEXT("heavy_swing"):Character&&Weapon?TEXT("dagger_swing"):TEXT("blade_swing");
     if (auto* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Track,Track))) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation());
 }
@@ -524,7 +544,7 @@ void ATrainPawn::MulticastDamage_Implementation(float Damage,bool Dead)
 void ATrainPawn::ReceiveHit(float Damage)
 {
     auto* PS=GetPlayerState<ATrainPlayerState>();auto* GS=GetWorld()->GetGameState<ATrainGameState>();
-    if (!HasAuthority() || bWagon || Damage<=0 || !PS || !GS || PS->Health<=0 || GS->RunFinished || GS->GetServerWorldTimeSeconds()<PS->DashReadyAt-.49) return;
+    if (!HasAuthority() || bWagon || Damage<=0 || !PS || !GS || PS->Health<=0 || GS->RunFinished || GS->GetServerWorldTimeSeconds()<PS->DashReadyAt - (UTrainDash::CooldownDuration - UTrainDash::LeapDuration)) return;
     const float Actual=FMath::Min(PS->Health,Damage);PS->Health-=Actual;PS->DamageTaken+=Actual;PS->ForceNetUpdate();
     MulticastDamage(Actual,PS->Health<=0);
     if (auto* PC=Cast<ATrainPlayerController>(GetController())) PC->ClientHurt();
