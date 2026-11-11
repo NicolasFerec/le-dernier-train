@@ -39,6 +39,8 @@ L’installateur Linux crée une entrée standard dans le menu des applications 
 
 Le lanceur suit la dernière release stable de GitHub. Il affiche la recherche de mise à jour, le téléchargement et l’installation, puis démarre le jeu. Si GitHub est indisponible ou si le téléchargement échoue, il affiche un message bref et ouvre la version installée. Pour tester en local, utilise `./Scripts/play.sh` ou `./Scripts/local-coop.sh 2` depuis le projet Unreal.
 
+Sous Linux, le lanceur peut aussi se mettre à jour. Il vérifie et teste le nouvel exécutable avant de le remplacer, puis redémarre depuis le même raccourci. Installe une fois une version qui prend en charge cette fonction pour activer les mises à jour suivantes du lanceur.
+
 Le profil et `launcher.log` se trouvent sous `${XDG_STATE_HOME:-$HOME/.local/state}/le-dernier-train-unreal` sur Linux et `%LOCALAPPDATA%\LeDernierTrainUnreal` sur Windows.
 
 ### Construire les paquets
@@ -56,6 +58,8 @@ Sur Windows, passe le chemin d’Unreal sous Windows et utilise l’archive dont
 ### Publier les paquets
 
 Construis localement depuis le commit de `main` à distribuer. Prépare une release stable avec le tag `vX.Y.Z`, les notes GitHub générées depuis la stable précédente, le ZIP et l’installateur de chaque plateforme construite. Vérifie les fichiers joints avant la publication.
+
+Sous Linux, joins aussi l’exécutable autonome `Le-Dernier-Train-Launcher-vX.Y.Z-linux-x86_64` généré avec l’installateur. Le script `Distribution/publish.py` attend ces trois fichiers pour Linux. Incrémente `Distribution/launcher/version.txt` à chaque changement du lanceur, indépendamment de la version du jeu.
 
 Utilise `--repository propriétaire/dépôt` lors de la construction de l’installateur pour sélectionner le dépôt GitHub qui héberge ces releases.
 

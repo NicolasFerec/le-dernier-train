@@ -11,20 +11,23 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from launcher.update import DEFAULT_REPO, MAX_ASSET, PRODUCT, REPO, VERSION
+from launcher.update import DEFAULT_REPO, MAX_ASSET, PRODUCT, REPO, VERSION, launcher_asset_name
 
 HERE = Path(__file__).resolve().parent
 ART = HERE / 'launcher'
 WINDOWS = sys.platform == 'win32'
+LAUNCHER_VERSION = (ART / 'version.txt').read_text(encoding='utf-8').strip()
 
 
-def build_launcher(scratch, repo):
+def build_launcher(scratch, repo, version=LAUNCHER_VERSION):
     repository = scratch / 'repository.txt'
     repository.write_text(repo + '\n', encoding='utf-8')
+    version_file = scratch / 'version.txt'
+    version_file.write_text(version + '\n', encoding='utf-8')
     options = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile', '--windowed',
                '--name=LeDernierTrainLauncher', f'--distpath={scratch / "dist"}',
                f'--workpath={scratch / "build"}', f'--specpath={scratch}']
-    for resource in (ART / 'depot.png', ART / 'icon.png', repository):
+    for resource in (ART / 'depot.png', ART / 'icon.png', repository, version_file):
         options.append(f'--add-data={resource}:.')
     if WINDOWS:
         options.append(f'--icon={ART / "icon.ico"}')
@@ -92,6 +95,11 @@ def main():
             if temporary.stat().st_size > MAX_ASSET:
                 raise ValueError('The installer exceeds the GitHub Releases asset limit')
             temporary.replace(output)
+            if not WINDOWS:
+                launcher_output = output.with_name(launcher_asset_name(LAUNCHER_VERSION))
+                shutil.copy2(launcher, temporary)
+                temporary.replace(launcher_output)
+                print(launcher_output, flush=True)
         finally:
             temporary.unlink(missing_ok=True)
     print(output, flush=True)

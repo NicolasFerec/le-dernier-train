@@ -30,6 +30,8 @@ MAX_EXTRACTED = 12 * 1024**3
 REPO = re.compile(r'[A-Za-z0-9-]+/[A-Za-z0-9_.-]+\Z')
 HASH = re.compile(r'[a-f0-9]{64}\Z')
 VERSION = re.compile(r'v(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\.(0|[1-9]\d{0,9})\Z')
+LAUNCHER_PREFIX = 'Le-Dernier-Train-Launcher-'
+LAUNCHER_SUFFIX = '-linux-x86_64'
 
 
 @dataclass(frozen=True)
@@ -50,23 +52,54 @@ def version_key(version):
     return tuple(map(int, VERSION.fullmatch(version).groups()))
 
 
-def select_asset(release, repo, platform):
-    if not REPO.fullmatch(repo) or platform not in PLATFORMS:
+def launcher_asset_name(version):
+    if not VERSION.fullmatch(version):
+        raise ValueError('Invalid launcher version')
+    return f'{LAUNCHER_PREFIX}{version}{LAUNCHER_SUFFIX}'
+
+
+def stable_tag(release, repo):
+    if not REPO.fullmatch(repo):
         raise ValueError('Invalid update feed')
     if release.get('draft') or release.get('prerelease'):
         raise ValueError('Release is not published as stable')
     tag = release.get('tag_name', '')
+    if not VERSION.fullmatch(tag):
+        raise ValueError('Invalid stable release tag')
+    return tag
+
+
+def release_asset(entry, repo, tag, version, name):
+    digest = entry.get('digest') or ''
+    size = entry.get('size')
+    if (entry.get('state') == 'uploaded' and digest.startswith('sha256:') and HASH.fullmatch(digest[7:])
+            and type(size) is int and 0 < size <= MAX_ASSET):
+        url = f'https://github.com/{repo}/releases/download/{tag}/{name}'
+        return Asset(version, digest[7:], size, url)
+    return None
+
+
+def select_asset(release, repo, platform):
+    tag = stable_tag(release, repo)
     name = asset_name(tag, platform)
     for entry in release.get('assets', []):
-        if entry.get('name') != name or entry.get('state') != 'uploaded':
-            continue
-        digest = entry.get('digest') or ''
-        size = entry.get('size')
-        if (digest.startswith('sha256:') and HASH.fullmatch(digest[7:])
-                and type(size) is int and 0 < size <= MAX_ASSET):
-            url = f'https://github.com/{repo}/releases/download/{tag}/{name}'
-            return Asset(tag, digest[7:], size, url)
+        if entry.get('name') == name and (asset := release_asset(entry, repo, tag, tag, name)):
+            return asset
     raise ValueError('No stable build for this platform')
+
+
+def select_launcher_asset(release, repo, installed_version):
+    tag = stable_tag(release, repo)
+    candidates = []
+    for entry in release.get('assets', []):
+        name = entry.get('name', '')
+        if not name.startswith(LAUNCHER_PREFIX) or not name.endswith(LAUNCHER_SUFFIX):
+            continue
+        version = name[len(LAUNCHER_PREFIX):-len(LAUNCHER_SUFFIX)]
+        if VERSION.fullmatch(version) and version_key(version) > version_key(installed_version):
+            if asset := release_asset(entry, repo, tag, version, name):
+                candidates.append(asset)
+    return max(candidates, key=lambda asset: version_key(asset.version), default=None)
 
 
 class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
@@ -79,7 +112,7 @@ class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
 HTTP = urllib.request.build_opener(HTTPSRedirect())
 
 
-def fetch_asset(repo, platform):
+def fetch_release(repo):
     if not REPO.fullmatch(repo):
         raise ValueError('Invalid GitHub repository')
     request = urllib.request.Request(
@@ -87,7 +120,7 @@ def fetch_asset(repo, platform):
         headers={'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache', 'User-Agent': PRODUCT},
     )
     with HTTP.open(request, timeout=5) as response:
-        return select_asset(json.loads(response.read(4 * 1024**2)), repo, platform)
+        return json.loads(response.read(4 * 1024**2))
 
 
 def download(asset, output, progress):
@@ -105,6 +138,56 @@ def download(asset, output, progress):
             progress('download', downloaded / asset.size)
     if downloaded != asset.size or digest.hexdigest() != asset.digest:
         raise ValueError('Update download failed its SHA-256 check')
+
+
+def external_environment():
+    environment = os.environ.copy()
+    # PyInstaller prepends its own libraries. Child executables must load their own.
+    if getattr(sys, 'frozen', False) and sys.platform != 'win32':
+        if original := environment.get('LD_LIBRARY_PATH_ORIG'):
+            environment['LD_LIBRARY_PATH'] = original
+        else:
+            environment.pop('LD_LIBRARY_PATH', None)
+    return environment
+
+
+def launcher_environment():
+    environment = external_environment()
+    environment['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+    return environment
+
+
+def stage_launcher(asset, executable, repo, progress):
+    candidate = executable.with_name('.launcher-next')
+    candidate.unlink(missing_ok=True)
+    try:
+        progress('download_launcher', 0)
+        download(asset, candidate, lambda _, value: progress('download_launcher', value))
+        candidate.chmod(0o755)
+        progress('install_launcher', None)
+        subprocess.run([candidate, '--check-launcher', asset.version, repo],
+                       env=launcher_environment(), check=True, timeout=20)
+    except Exception:
+        candidate.unlink(missing_ok=True)
+        raise
+    return candidate
+
+
+def restart_launcher(executable, candidate):
+    backup = executable.with_name('.launcher-previous')
+    backup.unlink(missing_ok=True)
+    os.link(executable, backup)
+    try:
+        candidate.replace(executable)
+    except OSError:
+        backup.unlink(missing_ok=True)
+        raise
+    try:
+        # Linux keeps the running inode valid. The lock closes on exec.
+        os.execve(executable, [str(executable)], launcher_environment())
+    except OSError:
+        backup.replace(executable)
+        raise
 
 
 def unpack(archive, destination):
@@ -239,10 +322,12 @@ class Installation:
         archive.unlink(missing_ok=True)
         (self.root / 'bootstrap.json').unlink(missing_ok=True)
 
-    def update(self, repo, progress):
+    def update(self, repo, progress, *, release=None):
         local = self.current()
-        progress('check', None)
-        asset = fetch_asset(repo, self.platform)
+        if release is None:
+            progress('check', None)
+            release = fetch_release(repo)
+        asset = select_asset(release, repo, self.platform)
         if local and (version_key(asset.version) < version_key(local[0])
                       or (asset.version, asset.digest) == local[:2]):
             return local[2]
@@ -282,17 +367,11 @@ def state_directory():
 def launch_game(installation, directory, settings):
     settings.mkdir(parents=True, exist_ok=True)
     entry = directory / ENTRIES[installation.platform]
-    environment = os.environ.copy()
+    environment = external_environment()
     environment['TRAIN_LAUNCHER_SETTINGS'] = str(settings)
-    # PyInstaller prepends its own libraries. The Unreal executable must load its own.
-    if getattr(sys, 'frozen', False):
-        if os.name == 'nt':
-            import ctypes
-            ctypes.windll.kernel32.SetDllDirectoryW(None)
-        elif original := environment.get('LD_LIBRARY_PATH_ORIG'):
-            environment['LD_LIBRARY_PATH'] = original
-        else:
-            environment.pop('LD_LIBRARY_PATH', None)
+    if getattr(sys, 'frozen', False) and os.name == 'nt':
+        import ctypes
+        ctypes.windll.kernel32.SetDllDirectoryW(None)
     player_directory = settings / 'Player'
     if os.name == 'nt':
         # Unreal parses the raw Windows command line and expects quotes around the value.
