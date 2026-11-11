@@ -138,9 +138,16 @@ TSharedRef<SWidget> UTrainMenu::BuildContent()
     }
     auto Column = SNew(SVerticalBox);
     const FString Font = FPaths::ProjectContentDir() / TEXT("Fonts/Cinzel.ttf");
+    const int32 TitleSize = PauseMode ? 38 : 53;
+    FSlateFontInfo TitleFont = FCoreStyle::GetDefaultFontStyle("Regular", TitleSize);
+    if (FPaths::FileExists(Font))
+    {
+        TitleFont = FSlateFontInfo(MakeShared<FCompositeFont>(TEXT("TrainTitle"), Font,
+            EFontHinting::Default, EFontLoadingPolicy::LazyLoad), TitleSize);
+    }
     Column->AddSlot().AutoHeight().HAlign(HAlign_Center).Padding(0, 0, 0, 14)
         [SNew(STextBlock).Text(PauseMode ? T(TEXT("Pause"), TEXT("Paused")) : FText::FromString(TEXT("Le Dernier Train")))
-            .Font(FSlateFontInfo(MakeShared<FCompositeFont>(TEXT("TrainTitle"), Font, EFontHinting::Default, EFontLoadingPolicy::LazyLoad), PauseMode ? 38 : 53)).ColorAndOpacity(Ivory)
+            .Font(TitleFont).ColorAndOpacity(Ivory)
             .ShadowOffset(FVector2D(2, 3)).ShadowColorAndOpacity(FLinearColor::Black)];
     Column->AddSlot().AutoHeight().HAlign(HAlign_Center).Padding(0, 0, 0, 22)
         [SNew(STextBlock).ColorAndOpacity(Ivory).Font(FCoreStyle::GetDefaultFontStyle("Regular",13))
