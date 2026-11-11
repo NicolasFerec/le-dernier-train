@@ -102,10 +102,10 @@ func swept_hit(target: Variant, point: Vector2, previous: float, padding := 0.0)
 	return true
 
 
-func step(delta: float, bounds: Rect2) -> void:
+func step(delta: float, bounds: Rect2, obstacles: Array[Rect2]) -> void:
 	previous_position = position
 	step_attack(delta)
-	step_motion(delta, bounds)
+	step_motion(delta, bounds, obstacles)
 
 
 func step_attack(delta: float) -> void:

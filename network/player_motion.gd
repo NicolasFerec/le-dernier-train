@@ -17,6 +17,7 @@ var played_dodge := 0
 
 var _owner := Vector2i.ZERO
 var _bounds := Rect2()
+var _obstacles: Array[Rect2] = []
 var _first_tick := 0
 var _next_dodge := 0
 var _rollback := RollbackSynchronizer.new()
@@ -45,13 +46,14 @@ func _ready() -> void:
 	add_child(_interpolation)
 
 
-func bind(peer: int, epoch: int, player: PlayerLocomotion, bounds: Rect2) -> void:
+func bind(peer: int, epoch: int, player: PlayerLocomotion, bounds: Rect2, obstacles: Array[Rect2]) -> void:
 	var owner := Vector2i(peer, epoch) if player != null else Vector2i.ZERO
 	if owner == _owner:
 		if player == null or not multiplayer.is_server() or body.position == player.position:
 			return
 	_owner = owner
 	_bounds = bounds
+	_obstacles = obstacles
 	_first_tick = NetworkTime.tick
 	_next_dodge = 0
 	dodge_consumed = 0
@@ -103,4 +105,4 @@ func _rollback_tick(delta: float, tick: int, _is_fresh: bool) -> void:
 		dodge_consumed = controls.dodge_request
 		if body.dodge():
 			dodge_started = dodge_consumed
-	body.step_motion(delta, _bounds)
+	body.step_motion(delta, _bounds, _obstacles)

@@ -70,13 +70,15 @@ func _fit_viewport() -> void:
 	_update_camera()
 
 
-func _update_camera() -> void:
+func _update_camera(delta := 0.0) -> void:
 	train.visible = room == 0
 	GameAudio.set_scene(GameAudio.Scene.WAGON if train.visible else GameAudio.Scene.SILENT)
 	var local_player: Node2D = players.get(multiplayer.get_unique_id())
 	var fallback := Vector2(TrainLobby.SPAWNS[0]) if room == 0 else mission.spawn_point(0)
 	var focus := Vector2(local_player.render_position) if local_player != null else fallback
 	transform = design_layout.translated_local(visible_area.get_center() - Isometric.GROUND * focus)
+	if train.visible:
+		train.update_furniture_visibility(focus, delta)
 
 
 func _setup_network_motion() -> void:
@@ -105,7 +107,7 @@ func _prepare_network_motion() -> void:
 		var player: PlayerLocomotion = players[id]
 		var lane := _player_motion[player.slot]
 		active_slots[player.slot] = true
-		lane.bind(id, _motion_epoch, player, _movement_bounds())
+		lane.bind(id, _motion_epoch, player, _movement_bounds(), _movement_obstacles())
 		lane.paused = game_paused or run_finished
 		lane.body.hp = player.hp
 		lane.body.speed = player.speed
@@ -113,7 +115,7 @@ func _prepare_network_motion() -> void:
 			lane.gather(_read_movement())
 	for slot in _player_motion.size():
 		if not active_slots.has(slot):
-			_player_motion[slot].bind(0, _motion_epoch, null, Rect2())
+			_player_motion[slot].bind(0, _motion_epoch, null, Rect2(), [])
 	for index in _enemy_motion.size():
 		var enemy: Node2D = enemies[index] if index < enemies.size() else null
 		_enemy_motion[index].prepare(enemy, _motion_epoch)
@@ -141,7 +143,7 @@ func _finish_network_motion() -> void:
 		lane.record_pose()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var fraction := Engine.get_physics_interpolation_fraction()
 	var online := Session.is_online()
 	var authority := multiplayer.is_server()
@@ -168,7 +170,7 @@ func _process(_delta: float) -> void:
 			enemy.render_position = enemy.previous_position.lerp(enemy.position, fraction)
 		else:
 			enemy.render_position = enemy.position
-	_update_camera()
+	_update_camera(delta)
 
 
 func _host() -> void:
@@ -444,7 +446,7 @@ func _physics_process(delta: float) -> void:
 			if online:
 				player.step_attack(delta)
 			else:
-				player.step(delta, _movement_bounds())
+				player.step(delta, _movement_bounds(), _movement_obstacles())
 			if previous < 1.0 and player.hp > 0:
 				_resolve_attack(id, player, previous)
 		for enemy in enemies:
@@ -475,6 +477,10 @@ func _read_movement() -> Vector2:
 
 func _movement_bounds() -> Rect2:
 	return TrainLobby.BOUNDS if room == 0 else mission.bounds
+
+
+func _movement_obstacles() -> Array[Rect2]:
+	return train.obstacles if room == 0 else []
 
 
 func _set_game_paused(active: bool) -> void:
@@ -558,7 +564,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var local: Node2D = players.get(multiplayer.get_unique_id())
 		if local != null:
 			var lane := _player_motion[local.slot]
-			lane.bind(multiplayer.get_unique_id(), _motion_epoch, local, _movement_bounds())
+			lane.bind(multiplayer.get_unique_id(), _motion_epoch, local, _movement_bounds(), _movement_obstacles())
 			lane.request_dodge()
 	elif multiplayer.is_server():
 		_act(1, dodge, heavy)

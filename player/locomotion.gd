@@ -14,7 +14,7 @@ var dash_cooldown := 0.0
 var dash_direction := Vector2.ZERO
 
 
-func step_motion(delta: float, bounds: Rect2) -> void:
+func step_motion(delta: float, bounds: Rect2, obstacles: Array[Rect2]) -> void:
 	dash_time = maxf(0.0, dash_time - delta)
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	if hp <= 0:
@@ -22,7 +22,22 @@ func step_motion(delta: float, bounds: Rect2) -> void:
 	if movement != Vector2.ZERO:
 		facing = movement.normalized()
 	var velocity := dash_direction * DASH_SPEED if dash_time > 0 else movement * speed
-	position = (position + velocity * delta).clamp(bounds.position, bounds.end)
+	var target := (position + velocity * delta).clamp(bounds.position, bounds.end)
+	var moved := position
+	for axis in range(2):
+		var side := 1 - axis
+		var limit := target[axis]
+		for obstacle in obstacles:
+			if moved[side] <= obstacle.position[side] or moved[side] >= obstacle.end[side]:
+				continue
+			if moved[axis] <= obstacle.position[axis] and limit > obstacle.position[axis]:
+				limit = obstacle.position[axis]
+			elif moved[axis] >= obstacle.end[axis] and limit < obstacle.end[axis]:
+				limit = obstacle.end[axis]
+		moved[axis] = limit
+	if moved.is_equal_approx(position):
+		movement = Vector2.ZERO
+	position = moved
 
 
 func dodge() -> bool:
