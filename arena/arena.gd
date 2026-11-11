@@ -471,6 +471,11 @@ func _physics_process(delta: float) -> void:
 func _read_movement() -> Vector2:
 	if game_paused or run_finished or open_station >= 0:
 		return Vector2.ZERO
+	var horizontal := Input.get_axis("move_left", "move_right")
+	var vertical := Input.get_axis("move_up", "move_down")
+	# Two fully pressed directions follow a projected ground axis.
+	if absf(horizontal) == 1.0 and absf(vertical) == 1.0:
+		return Vector2(horizontal, 0.0) if horizontal == vertical else Vector2(0.0, vertical)
 	var screen_direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	# Keep stick strength and ground speed while converting the screen heading.
 	var ground_direction := Isometric.GROUND.affine_inverse().basis_xform(screen_direction)
