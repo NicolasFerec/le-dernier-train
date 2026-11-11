@@ -15,8 +15,10 @@ const WORKSHOP_ROWS := {Pose.RUN: 0, Pose.DODGE: 1, Pose.LIGHT: 2, Pose.HEAVY: 3
 const SOUTHWEST := 1
 const NORTHEAST := 5
 const GRIPS := preload("res://player/conductor/grips.gd")
-const CELL := Vector2(128, 128)
-const GROUND := Vector2(64, 95)
+const TEXEL_DENSITY := 2.0
+const CELL := Vector2(92, 88)
+const GROUND := Vector2(44, 79)
+const BODY_ROWS := [0, 1, 5, 9, 13, 17, 19]
 const WEAPON_GRIP := Vector2(32, 32)
 const RUN_CYCLE_DISTANCE := 73.0
 const HIT_TIME := 0.18
@@ -119,10 +121,11 @@ func ground_contacts(weapon: int) -> Array[Vector2]:
 func draw(canvas: CanvasItem, actor: Node2D) -> void:
 	if _has_workshop_pose():
 		var row: int = WORKSHOP_ROWS[pose] + (4 if direction == NORTHEAST else 0)
-		var region := Rect2(Vector2(frame, row) * CELL, CELL)
+		var region := Rect2(Vector2(frame, row) * CELL * TEXEL_DENSITY, CELL * TEXEL_DENSITY)
 		canvas.draw_texture_rect_region(WORKSHOP_POSES[actor.weapon], Rect2(-GROUND, CELL), region)
 		return
-	var region := Rect2(Vector2(direction, pose * 4 + frame) * CELL, CELL)
+	var row: int = BODY_ROWS[pose] + frame
+	var region := Rect2(Vector2(direction, row) * CELL * TEXEL_DENSITY, CELL * TEXEL_DENSITY)
 	if not GRIPS.OFFSETS.has(pose):
 		canvas.draw_texture_rect_region(BODY, Rect2(-GROUND, CELL), region)
 		return
@@ -147,7 +150,7 @@ func draw(canvas: CanvasItem, actor: Node2D) -> void:
 		_draw_weapon(canvas, actor.weapon, hand, angle)
 		# Restore the glove over the handle where the two sprites overlap.
 		var glove := Rect2(hand - Vector2(2, 2), Vector2(4, 4))
-		canvas.draw_texture_rect_region(BODY, glove, Rect2(region.position + GROUND + glove.position, glove.size))
+		canvas.draw_texture_rect_region(BODY, glove, Rect2(region.position + (GROUND + glove.position) * TEXEL_DENSITY, glove.size * TEXEL_DENSITY))
 
 
 func _has_workshop_pose() -> bool:
@@ -156,5 +159,6 @@ func _has_workshop_pose() -> bool:
 
 func _draw_weapon(canvas: CanvasItem, index: int, hand: Vector2, angle: float) -> void:
 	canvas.draw_set_transform(hand, angle)
-	canvas.draw_texture(WEAPONS[index], -WEAPON_GRIP)
+	var texture: Texture2D = WEAPONS[index]
+	canvas.draw_texture_rect(texture, Rect2(-WEAPON_GRIP, texture.get_size() / TEXEL_DENSITY), false)
 	canvas.draw_set_transform(Vector2.ZERO)

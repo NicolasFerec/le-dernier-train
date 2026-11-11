@@ -33,15 +33,15 @@ const BRASS := Color("#d1a065")
 
 # Each sprite lists the painted slopes of its ground edges and the UVs of its feet.
 const STATION_PROPS := [
-	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 74), 88.0, Vector2(0.42, -0.53),
+	[preload("res://arena/train/wardrobe.webp"), Vector2(148, 74), 98.0, Vector2(0.42, -0.53),
 		[Vector2(0.05, 0.9), Vector2(0.28, 0.99), Vector2(0.52, 0.91), Vector2(0.63, 0.95), Vector2(0.96, 0.88)]],
-	[preload("res://arena/train/workbench.webp"), Vector2(480, 83), 77.0, Vector2(0.41, -0.56),
+	[preload("res://arena/train/workbench.webp"), Vector2(480, 83), 87.0, Vector2(0.41, -0.56),
 		[Vector2(0.06, 0.71), Vector2(0.25, 0.79), Vector2(0.50, 0.87), Vector2(0.69, 0.98), Vector2(0.93, 0.85)]],
-	[preload("res://arena/train/lectern.webp"), Vector2(647, 79), 75.0, Vector2(0.44, -0.46),
+	[preload("res://arena/train/lectern.webp"), Vector2(647, 79), 84.0, Vector2(0.44, -0.46),
 		[Vector2(0.09, 0.83), Vector2(0.37, 0.74), Vector2(0.54, 0.98), Vector2(0.88, 0.87)]],
-	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 100.0, Vector2(0.31, -0.45),
+	[preload("res://arena/train/timetable.webp"), Vector2(1370, 98), 112.0, Vector2(0.31, -0.45),
 		[Vector2(0.09, 0.8), Vector2(0.25, 0.75), Vector2(0.78, 0.99), Vector2(0.94, 0.92)]],
-	[preload("res://arena/train/telegraph.webp"), Vector2(310, 85), 79.0, Vector2(0.43, -0.46),
+	[preload("res://arena/train/telegraph.webp"), Vector2(310, 85), 89.0, Vector2(0.43, -0.46),
 		[Vector2(0.13, 0.77), Vector2(0.65, 0.98), Vector2(0.93, 0.85)]],
 ]
 const CRATE := preload("res://arena/train/crate.webp")

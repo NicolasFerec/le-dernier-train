@@ -27,4 +27,4 @@ Référence d’identité constante, costume bordeaux et cuivre, gilet bleu-vert
 
 ## Atlas utilisé dans Godot
 
-Les poses et armes détourées se trouvent dans [player/conductor](../../../player/conductor). Le [format de l’atlas](../../../player/character-sprites.md) décrit l’ordre des cellules, les points de prise et le test dans le wagon.
+Les scripts [pack.py](pack.py) et [workshop/pack.py](workshop/pack.py) exportent les planches à deux pixels par unité de jeu avec Pillow. Les poses et armes détourées se trouvent dans [player/conductor](../../../player/conductor). Le [format de l’atlas](../../../player/character-sprites.md) décrit l’ordre des cellules, les points de prise et le test dans le wagon.

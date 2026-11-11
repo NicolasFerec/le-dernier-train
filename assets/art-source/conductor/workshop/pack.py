@@ -5,8 +5,9 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 
 ART = Path(__file__).resolve().parent
 DEST = ART.parents[3] / 'player/conductor'
-CELL = 128
-SCALE = .22
+CELL = (184, 176)
+PIVOT = (88, 158)
+SCALE = .44
 
 
 def isolate(frame):
@@ -60,12 +61,12 @@ def cells(path, flip_front):
             pivot_y = bottom - 2
             crop = frame.crop((left, top, right, bottom))
             crop = crop.resize((round(crop.width*SCALE), round(crop.height*SCALE)), Image.Resampling.LANCZOS)
-            origin = round(64 + (left - pivot_x)*SCALE), round(95 + (top - pivot_y)*SCALE)
+            origin = round(PIVOT[0] + (left - pivot_x)*SCALE), round(PIVOT[1] + (top - pivot_y)*SCALE)
             yield row, col, crop, origin
 
 
 def bake(weapon):
-    atlas = Image.new('RGBA', (4*CELL, 8*CELL))
+    atlas = Image.new('RGBA', (4*CELL[0], 8*CELL[1]))
     for kind, action in (('mouvement', 0), ('frappes', 2)):
         path = ART / f'{weapon}-{kind}.png'
         if not path.exists():
@@ -77,11 +78,11 @@ def bake(weapon):
                 if col == 2:
                     continue
                 if col == 0:
-                    atlas.alpha_composite(crop, (3*CELL+origin[0], (row//2*4+3)*CELL+origin[1]))
+                    atlas.alpha_composite(crop, (3*CELL[0]+origin[0], (row//2*4+3)*CELL[1]+origin[1]))
                 elif col == 3:
                     col = 2
             dest_row = row // 2 * 4 + action + row % 2
-            atlas.alpha_composite(crop, (col*CELL+origin[0], dest_row*CELL+origin[1]))
+            atlas.alpha_composite(crop, (col*CELL[0]+origin[0], dest_row*CELL[1]+origin[1]))
     atlas.save(DEST / f'workshop_{weapon}.png', optimize=True)
 
 

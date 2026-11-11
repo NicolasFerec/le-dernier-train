@@ -4,13 +4,13 @@ Le conducteur utilise un atlas peint avec sept états et huit directions. Les so
 
 | Élément | Format |
 | --- | --- |
-| Atlas | `conductor/poses.png`, PNG RGBA. Cellules de 128 × 128 px. |
+| Atlas | `conductor/poses.png`, PNG RGBA. Cellules de 184 × 176 px affichées sur 92 × 88 unités. |
 | Colonnes | S, SW, W, NW, N, NE, E, SE, dans l’espace écran après projection. |
-| Rangées | Quatre rangées réservées à chaque état dans l’ordre garde, course, esquive, frappe légère, frappe lourde, choc et chute. |
+| Rangées | États rangés dans l’ordre garde, course, esquive, frappe légère, frappe lourde, choc et chute. Chaque état occupe le nombre de rangées correspondant à ses poses. |
 | Poses | Garde statique, quatre poses pour la course, l’esquive et les frappes, deux pour le choc et la chute. |
-| Appui | Point (64, 95) de chaque cellule. La hauteur de référence du conducteur debout est de 64 px. |
+| Appui | Point (88, 158) dans la cellule, soit (44, 79) dans le jeu. La hauteur de référence du conducteur debout est de 64 unités. |
 | Prises | `conductor/grips.gd` contient les décalages de main relatifs à l’appui pour chaque pose armée et les angles de port par image de course. |
-| Armes | PNG RGBA séparés. Poignée au point (32, 32), arme orientée vers la droite. |
+| Armes | PNG RGBA séparés. Poignée au point (64, 64) dans la texture, soit (32, 32) dans le jeu, arme orientée vers la droite. |
 
 La course déroule quatre poses par cycle de 73 unités parcourues au sol. L’esquive et les frappes suivent la progression de l’action de jeu. La frappe reprend la direction mémorisée au départ du coup, et l’arme vise le bord du balayage utilisé pour les impacts. La prise change avec la pose du corps. Le sabre et le marteau partagent les animations. L’arme est masquée pendant l’esquive, le choc et la chute.
 
