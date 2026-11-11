@@ -378,8 +378,8 @@ TSharedRef<SWidget> UTrainMenu::BuildSettings()
     else if (Tab == 2)
     {
         Row(T(TEXT("Langue"), TEXT("Language")), Select(FText::FromString(Settings->Language == TEXT("en") ? TEXT("English") : TEXT("Français")),
-            { { FText::FromString(TEXT("Français")), [this, Settings]() { Settings->Language = TEXT("fr"); Settings->SaveSettings(); Refresh(); } },
-              { FText::FromString(TEXT("English")), [this, Settings]() { Settings->Language = TEXT("en"); Settings->SaveSettings(); Refresh(); } } }));
+            { { FText::FromString(TEXT("Français")), [this, Settings]() { Settings->SetLanguage(TEXT("fr"), GetWorld()); Refresh(); } },
+              { FText::FromString(TEXT("English")), [this, Settings]() { Settings->SetLanguage(TEXT("en"), GetWorld()); Refresh(); } } }));
         Row(T(TEXT("Clavier"), TEXT("Keyboard")), Select(
             FText::FromString(Settings->KeyboardLayout == 2 ? TEXT("QWERTY · WASD") : TEXT("AZERTY · ZQSD")),
             { { FText::FromString(TEXT("AZERTY · ZQSD")), [this, Settings]() { Settings->KeyboardLayout = 1; Settings->SaveSettings(); Refresh(); } },

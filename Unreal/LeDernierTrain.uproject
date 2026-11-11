@@ -3,6 +3,10 @@
   "EngineAssociation": "5.8",
   "Plugins": [
     {
+      "Name": "AndroidFileServer",
+      "Enabled": false
+    },
+    {
       "Name": "ModelContextProtocol",
       "Enabled": true,
       "TargetAllowList": [

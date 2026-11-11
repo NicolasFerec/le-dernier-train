@@ -76,8 +76,9 @@ def light(pos,color=(255,193,122),intensity=250,radius=500):
     c.set_editor_property('use_inverse_squared_falloff',False);c.set_editor_property('light_falloff_exponent',3.0)
     c.set_editor_property('intensity',intensity*.008);c.set_editor_property('attenuation_radius',radius);c.set_editor_property('light_color',ue.Color(*color,255));c.set_editor_property('cast_shadows',False)
 
-def label(text,pos,yaw=0,size=32,color=(220,183,125)):
+def label(key,text,pos,yaw=0,size=32,color=(220,183,125)):
     a=actor(ue.TextRenderActor,text,pos,yaw);c=a.text_render;c.set_editor_property('text',ue.Text(text));c.set_editor_property('world_size',size);c.set_editor_property('text_render_color',ue.Color(*color,255))
+    a.tags=[ue.Name(f'TrainSign.{key}')]
     c.set_editor_property('horizontal_alignment',ue.HorizTextAligment.EHTA_CENTER)
     return a
 
@@ -171,7 +172,9 @@ station(2,(-100,320,0),'Orrery',135);station(4,(-500,-150,0),'Telegraph',135)
 station(3,(2650,0,0),'Departure',135)
 for x,y in [(-1450,280),(-500,-150),(-100,320),(2650,0)]:light((x,y-100,225),intensity=165,radius=375)
 for x,y in [(-2860,425),(-1135,515),(750,515),(2250,495),(2740,490)]:prop('Cargo',(x,y,0),yaw=165,scale=.82)
-for text,x in [('VESTIAIRE',-2250),('ARSENAL',-1450),('ATELIER DES PASSIFS',-100),('ENTRAÎNEMENT',1550)]:label(text,(x,580,270),-90,27)
+for key,text,x in [('Wardrobe','VESTIAIRE',-2250),('Arsenal','ARSENAL',-1450),
+                   ('Passives','ATELIER DES PASSIFS',-100),('Practice','ENTRAÎNEMENT',1550)]:
+    label(key,text,(x,580,270),-90,27)
 for x,y in [(1350,-230),(1600,150),(1850,-230)]:
     actor(ue.load_class(None,'/Script/LeDernierTrain.TrainDummy'),'Mannequin',(x,y,0),135)
     mesh('Tapis d’entraînement',(x,y,1),(180,180,3),dark,collision=False)
@@ -212,7 +215,8 @@ for name in ['Pompage','Fonderie']:
         prop('Cargo',(x,y,0),yaw=132,scale=1)
         prop('Cargo',(x+75,y+75,98),yaw=162,scale=.67)
     for x in range(-1800,2100,450):mesh('Conduite au pied du mur',(x,1740,48),(440,22,22),copper,collision=False)
-    label('STATION DE POMPAGE' if name=='Pompage' else 'HALLE DES TURBINES',(0,1765,305),-90,54)
+    key,text=('Pumping','STATION DE POMPAGE') if pumping else ('Turbines','HALLE DES TURBINES')
+    label(key,text,(0,1765,305),-90,54)
     ue.TrainWorldAuthoring.build_navigation(LEVELS.get_current_level(),ue.Vector(2400,1800,300))
     LEVELS.save_current_level()
 AS.save_directory('/Game/Maps',recursive=True)

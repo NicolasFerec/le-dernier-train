@@ -1,6 +1,9 @@
 #include "TrainSettings.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Engine/TextRenderActor.h"
+#include "Components/TextRenderComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/FileHelper.h"
@@ -52,6 +55,37 @@ void UTrainSettings::SetUpdateChannel(const FString& Channel)
         FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 }
 
+void UTrainSettings::SetLanguage(const FString& NewLanguage, UWorld* World)
+{
+    Language = NewLanguage;
+    LocalizeSigns(World);
+    SaveSettings();
+}
+
+void UTrainSettings::LocalizeSigns(UWorld* World) const
+{
+    if (!World) return;
+
+    struct FSignText { FName Tag; const TCHAR* French; const TCHAR* English; };
+    static const FSignText Signs[] = {
+        {TEXT("TrainSign.Wardrobe"), TEXT("VESTIAIRE"), TEXT("WARDROBE")},
+        {TEXT("TrainSign.Arsenal"), TEXT("ARSENAL"), TEXT("ARMORY")},
+        {TEXT("TrainSign.Passives"), TEXT("ATELIER DES PASSIFS"), TEXT("PASSIVE SKILLS")},
+        {TEXT("TrainSign.Practice"), TEXT("ENTRAÎNEMENT"), TEXT("TRAINING")},
+        {TEXT("TrainSign.Pumping"), TEXT("STATION DE POMPAGE"), TEXT("PUMP STATION")},
+        {TEXT("TrainSign.Turbines"), TEXT("HALLE DES TURBINES"), TEXT("TURBINE HALL")},
+    };
+    for (TActorIterator<ATextRenderActor> Actor(World); Actor; ++Actor)
+    {
+        for (const FSignText& Sign : Signs)
+        {
+            if (!Actor->ActorHasTag(Sign.Tag)) continue;
+            Actor->GetTextRender()->SetText(FText::FromString(Language == TEXT("en") ? Sign.English : Sign.French));
+            break;
+        }
+    }
+}
+
 void UTrainSettings::SetToDefaults()
 {
     Super::SetToDefaults();
@@ -87,6 +121,7 @@ void UTrainSettings::ApplyRuntime(UWorld* World, bool bMenu)
     GEngine->SetMaxFPS(bMenu ? 30 : GetGameLimit());
     if (World)
     {
+        LocalizeSigns(World);
         if (auto* PC = World->GetFirstPlayerController())
             PC->SetDisableHaptics(!Vibration);
         VolumeMix = LoadObject<USoundMix>(nullptr, TEXT("/Game/Audio/TrainMix.TrainMix"));

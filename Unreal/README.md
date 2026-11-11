@@ -98,6 +98,8 @@ L’hôte décide des dégâts, morts et statistiques. Les frappes légères son
 
 Quitter l’hôte termine la session. Les invités reviennent au menu avec une explication ; aucun transfert d’hôte n’est implémenté.
 
+Si le personnage de l’hôte tombe, l’hôte peut autoriser le passage dès qu’un équipier vivant atteint la sortie d’une salle vidée. L’indication de commande apparaît alors dans son HUD. Le rassemblement concerne les joueurs encore debout.
+
 Test automatisé dans Session Frontend ou via le MCP : `LeDernierTrain.Network.FourPlayers`. Il prépare ses paramètres PIE, crée quatre mondes réseau et contrôle les déplacements, l’esquive GAS, les dégâts autoritaires, les morts répliquées, les deux comportements du compte à rebours et la pause de l’hôte. Il restaure les paramètres de test à la fin. Le projet active `net.AllowPIESeamlessTravel` pour que le test suive le même passage de niveau que le jeu hors éditeur.
 
 ### Vérification Steam avec un seul compte

@@ -1,5 +1,8 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 #include "TrainPrototype.h"
+#include "TrainSettings.h"
+#include "Components/TextRenderComponent.h"
+#include "Engine/TextRenderActor.h"
 #include "network/TrainNetwork.h"
 #include "progression/TrainProfile.h"
 #include "ui/TrainDamageNumber.h"
@@ -52,6 +55,19 @@ namespace
             { Pawn->SetActorLocationAndRotation(Point,Rot,false,nullptr,ETeleportType::TeleportPhysics);Pawn->GetCharacterMovement()->StopMovementImmediately(); };
             if (Phase==0)
             {
+                ATextRenderActor* Wardrobe = nullptr;
+                for (TActorIterator<ATextRenderActor> Sign(World); Sign; ++Sign)
+                    if (Sign->ActorHasTag(TEXT("TrainSign.Wardrobe"))) Wardrobe = *Sign;
+                if (Test->TestNotNull(TEXT("The wardrobe has a translatable sign"), Wardrobe))
+                {
+                    auto* Settings = UTrainSettings::Get();
+                    const FString OriginalLanguage = Settings->Language;
+                    Settings->SetLanguage(TEXT("en"), World);
+                    Test->TestEqual(TEXT("The wardrobe sign switches to English"), Wardrobe->GetTextRender()->Text.ToString(), FString(TEXT("WARDROBE")));
+                    Settings->SetLanguage(TEXT("fr"), World);
+                    Test->TestEqual(TEXT("The wardrobe sign switches to French"), Wardrobe->GetTextRender()->Text.ToString(), FString(TEXT("VESTIAIRE")));
+                    Settings->SetLanguage(OriginalLanguage, World);
+                }
                 int32 Stations=0,Dummies=0;TSet<int32> Kinds;
                 for (TActorIterator<ATrainStation> It(World);It;++It) { ++Stations;Kinds.Add(It->Kind); }
                 for (TActorIterator<ATrainDummy> It(World);It;++It) ++Dummies;

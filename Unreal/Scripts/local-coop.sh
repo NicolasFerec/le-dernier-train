@@ -29,4 +29,6 @@ for ((guest=1;guest<players;guest++)); do
     "$project_dir/Scripts/play.sh" "127.0.0.1:7777?TrainVersion=$game_version" -nosteam -TrainLocal -TrainProfile="local-guest-$guest" -windowed -ResX=960 -ResY=640 -WinX=960 -WinY=0 -NoSplash -ModelContextProtocolPort="$((8011+guest))" "${smoke[@]}" -AbsLog="$project_dir/Saved/LocalCoop/guest-$guest.log" >"$project_dir/Saved/LocalCoop/guest-$guest.stdout" 2>&1 &
     pids+=("$!")
 done
-wait
+for pid in "${pids[@]}"; do
+    wait "$pid" || exit "$?"
+done

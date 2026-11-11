@@ -586,20 +586,43 @@ void ATrainGameMode::PreLogin(const FString& Options, const FString& Address, co
 }
 bool ATrainGameMode::EveryoneReady() const
 {
-    const auto* GS = GetGameState<ATrainGameState>();
-    for (auto It=GetWorld()->GetPlayerControllerIterator();It;++It)
-        if (const APawn* Pawn=It->Get()->GetPawn())
-            if (FVector::Dist2D(Pawn->GetActorLocation(),GS->DeparturePoint)>250) return false;
-    return true;
+    const auto* State = GetGameState<ATrainGameState>();
+    bool HasSurvivor = false;
+    for (const APlayerState* Player : State->PlayerArray)
+    {
+        const auto* Survivor = Cast<ATrainPlayerState>(Player);
+        if (!Survivor || Survivor->Health <= 0) continue;
+
+        const APawn* Pawn = Survivor->GetPawn();
+        if (!Pawn || FVector::Dist2D(Pawn->GetActorLocation(), State->DeparturePoint) > ATrainGameState::ExitRadius)
+            return false;
+        HasSurvivor = true;
+    }
+    return HasSurvivor;
 }
 void ATrainGameMode::RequestDeparture(ATrainPawn* Requester)
 {
-    auto* PC=Cast<ATrainPlayerController>(Requester->GetController()); auto* GS=GetGameState<ATrainGameState>();
-    if (!PC || GS->RunFinished || UGameplayStatics::IsGamePaused(this)) return;
-    if (!PC->GetPlayerState<ATrainPlayerState>() || !PC->GetPlayerState<ATrainPlayerState>()->IsHost) { PC->ClientNotice(TrainText(TEXT("Seul l’hôte peut lancer le départ"),TEXT("Only the host can start departure"))); return; }
-    if (FVector::Dist2D(Requester->GetActorLocation(),GS->DeparturePoint)>250 || (!IsMap(this,WagonMap) && GS->RemainingEnemies>0)) return;
+    auto* Controller = Cast<ATrainPlayerController>(Requester->GetController());
+    auto* State = GetGameState<ATrainGameState>();
+    if (!Controller || !State || State->RunFinished || IsMap(this, MenuMap) || UGameplayStatics::IsGamePaused(this)) return;
+
+    const auto* Host = Controller->GetPlayerState<ATrainPlayerState>();
+    if (!Host || !Host->IsHost)
+    {
+        Controller->ClientNotice(TrainText(TEXT("Seul l’hôte peut lancer le départ"), TEXT("Only the host can start departure")));
+        return;
+    }
+    if (State->RemainingEnemies > 0) return;
+    if (Host->Health <= 0)
+    {
+        if (!State->CanFallenHostDepart(Host)) return;
+    }
+    else if (FVector::Dist2D(Requester->GetActorLocation(), State->DeparturePoint) > ATrainGameState::ExitRadius)
+    {
+        return;
+    }
     if (EveryoneReady()) Depart();
-    else if (GS->DepartureAt <= 0) GS->DepartureAt=GS->GetServerWorldTimeSeconds()+10;
+    else if (State->DepartureAt <= 0) State->DepartureAt = State->GetServerWorldTimeSeconds() + 10;
 }
 void ATrainGameMode::Depart()
 {

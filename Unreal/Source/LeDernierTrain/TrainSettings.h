@@ -14,6 +14,7 @@ public:
     virtual void SaveSettings() override;
     FString GetUpdateChannel() const;
     void SetUpdateChannel(const FString& Channel);
+    void SetLanguage(const FString& NewLanguage, UWorld* World);
     void ApplyRuntime(UWorld* World, bool bMenu);
     float GetGameLimit() const;
     FKey Key(FName Action, bool bGamepad) const;
@@ -32,6 +33,7 @@ public:
     UPROPERTY(Config) int32 GameFPS = -1;
     UPROPERTY(Config) TMap<FString, FKey> Bindings;
 private:
+    void LocalizeSigns(UWorld* World) const;
     // Keep the native volume buses alive across world travel and garbage collection.
     UPROPERTY(Transient) TObjectPtr<class USoundMix> VolumeMix;
     UPROPERTY(Transient) TArray<TObjectPtr<class USoundClass>> VolumeClasses;

@@ -27,6 +27,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/WidgetComponent.h"
 #include "../ui/TrainWorldPrompt.h"
+#include "../ui/TrainInputHints.h"
 #include "CommonInputSubsystem.h"
 #include "InputKeyEventArgs.h"
 #include "Engine/StaticMesh.h"
@@ -65,6 +66,21 @@ void ATrainGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(ATrainGameState, DepartureAt); DOREPLIFETIME(ATrainGameState, RunFinished);
     DOREPLIFETIME(ATrainGameState, Victory); DOREPLIFETIME(ATrainGameState, DeparturePoint);
 }
+bool ATrainGameState::CanFallenHostDepart(const ATrainPlayerState* Host) const
+{
+    if (!Host || !Host->IsHost || Host->Health > 0 || RoomIndex == 0 || RemainingEnemies > 0 || RunFinished)
+        return false;
+
+    for (const APlayerState* Player : PlayerArray)
+    {
+        const auto* Survivor = Cast<ATrainPlayerState>(Player);
+        const APawn* Pawn = Survivor ? Survivor->GetPawn() : nullptr;
+        if (Pawn && Survivor->Health > 0 && FVector::Dist2D(Pawn->GetActorLocation(), DeparturePoint) <= ExitRadius)
+            return true;
+    }
+    return false;
+}
+
 ATrainPlayerController::ATrainPlayerController() { bShouldPerformFullTickWhenPaused = true; }
 bool ATrainPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
@@ -307,6 +323,22 @@ TSharedRef<SWidget> UTrainHUD::RebuildWidget()
                         FText::AsNumber(FMath::Max(0, FMath::CeilToInt(GS->DepartureAt - GS->GetServerWorldTimeSeconds()))));
                 return FText::GetEmpty();
             })];
+    Overlay->AddSlot().HAlign(HAlign_Center).VAlign(VAlign_Top).Padding(24, 60)
+        [SNew(SHorizontalBox)
+            .Visibility_Lambda([this,Member]()
+            {
+                const auto* GS = GetWorld()->GetGameState<ATrainGameState>();
+                const auto* Pawn = Cast<ATrainPawn>(GetOwningPlayerPawn());
+                return GS && GS->DepartureAt <= 0 && Pawn && !Pawn->IsMenuOpen() && GS->CanFallenHostDepart(Member(0))
+                    ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+            })
+            + SHorizontalBox::Slot().AutoWidth().Padding(0, 0, 10, 0)
+                [SNew(STrainInputGlyph).Size(26).Key_Lambda([this]() { return TrainInput::ActionKey(this, TEXT("Interact")); })]
+            + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+                [SNew(STextBlock).ColorAndOpacity(FLinearColor(.94,.84,.67)).Text_Lambda([]()
+                {
+                    return TrainText(TEXT("Autoriser le départ"), TEXT("Authorize departure"));
+                })]];
     Overlay->AddSlot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(28,60)
         [SNew(STextBlock).ColorAndOpacity(FLinearColor(.94,.84,.67)).Font(FCoreStyle::GetDefaultFontStyle("Bold",15))
             .Text_Lambda([this](){auto* GS=GetWorld()->GetGameState<ATrainGameState>();

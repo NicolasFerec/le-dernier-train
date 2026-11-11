@@ -210,19 +210,30 @@ namespace
                 Test->TestEqual(TEXT("Exit stays locked while enemies remain"),GS->DepartureAt,0.0);
                 TArray<ATrainEnemy*> Enemies;for (TActorIterator<ATrainEnemy> It(Server.Get());It;++It) Enemies.Add(*It);
                 for (auto* Enemy:Enemies) Enemy->Hit(Host,10000);
-                for (TActorIterator<ATrainPawn> It(Server.Get());It;++It)
-                    if (*It!=Host) It->SetActorLocation(FVector(-1900,-1100,95),false,nullptr,ETeleportType::TeleportPhysics);
-                Server->GetAuthGameMode<ATrainGameMode>()->RequestDeparture(Host);
-                Test->TestTrue(TEXT("Host can start the full countdown when guests stay away"),GS->DepartureAt>GS->GetServerWorldTimeSeconds()+9);
+                for (TActorIterator<ATrainPawn> It(Server.Get()); It; ++It)
+                    It->SetActorLocation(FVector(-1900,-1100,95),false,nullptr,ETeleportType::TeleportPhysics);
+                Host->ReceiveHit(10000);
+                Host->ServerInteract();
+                Test->TestEqual(TEXT("A fallen host needs a survivor at the exit"), GS->DepartureAt, 0.0);
+                ServerPawn()->SetActorLocation(GS->DeparturePoint+FVector(-150,0,95),false,nullptr,ETeleportType::TeleportPhysics);
+                ServerPawn()->ServerInteract();
+                Test->TestEqual(TEXT("A guest cannot start departure for the fallen host"), GS->DepartureAt, 0.0);
+                Host->ServerInteract();
+                Test->TestTrue(TEXT("A fallen host can start the countdown remotely"),GS->DepartureAt>GS->GetServerWorldTimeSeconds()+9);
                 Next();return false;
             }
             if (Phase==10)
             {
                 if (UGameplayStatics::GetCurrentLevelName(Server.Get())!=TEXT("Fonderie") || UGameplayStatics::GetCurrentLevelName(Client.Get())!=TEXT("Fonderie") || !ClientPawn() || !ClientPawn()->GetPlayerState<ATrainPlayerState>() || !GS || GS->PlayerArray.Num()!=4) return false;
+                const ATrainPlayerState* FallenHost = nullptr;
+                for (const APlayerState* Player : GS->PlayerArray)
+                    if (const auto* State = Cast<ATrainPlayerState>(Player); State && State->IsHost) FallenHost = State;
+                if (!FallenHost) return false;
                 Test->TestTrue(TEXT("Missing guests travel after ten seconds"),Elapsed>=9.5);
                 Test->TestEqual(TEXT("Four players remain together in the next room"),Server->GetGameState()->PlayerArray.Num(),4);
                 Test->TestEqual(TEXT("Cleared-room count survives multiplayer travel"),Server->GetGameState<ATrainGameState>()->RoomsCleared,1);
                 Test->TestEqual(TEXT("Guest health survives room travel"),ClientPawn()->GetPlayerState<ATrainPlayerState>()->Health,88.f);
+                Test->TestEqual(TEXT("The fallen host stays down after room travel"), FallenHost->Health, 0.f);
                 return true;
             }
             return false;

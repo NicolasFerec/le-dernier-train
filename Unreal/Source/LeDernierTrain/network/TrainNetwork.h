@@ -37,6 +37,8 @@ class ATrainGameState : public AGameStateBase
 {
     GENERATED_BODY()
 public:
+    static constexpr double ExitRadius = 250.0;
+    bool CanFallenHostDepart(const ATrainPlayerState* Host) const;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
     UPROPERTY(Replicated) int32 RemainingEnemies = 0;
     UPROPERTY(Replicated) int32 RoomsCleared = 0;
