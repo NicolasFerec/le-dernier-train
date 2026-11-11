@@ -16,7 +16,7 @@ Le conducteur a un sabre et peut débloquer le marteau à piston. L’Éclaireur
 
 Accessibles depuis le menu principal et la pause, enregistrés dans `Saved/Config/LinuxEditor/GameUserSettings.ini` en développement (les versions distribuées utiliseront leur dossier utilisateur Unreal).
 
-- Audio : volumes général, musique et effets. Les ambiances du dépôt et du wagon et le son de frappe sont importés depuis le projet Godot ; les volumes pilotent des Sound Classes.
+- Audio : volumes général, musique et effets. Les ambiances du dépôt et du wagon et le son de frappe sont importés depuis `SourceArt/Audio` ; les volumes pilotent des Sound Classes.
 - Graphismes : plein écran, résolutions du format de l’écran, VSync, compteur d’IPS, limite d’IPS par paliers (automatique, 30 à 240, sans limite), qualité globale et réglages des ombres, textures, effets, anticrénelage, post-traitement et distance d’affichage.
 - Général : français/anglais et disposition AZERTY/QWERTY.
 - Commandes : clavier/manette, réattribution des actions du prototype et du changement d’onglet, rejet des doublons dans un même contexte, touches réservées, réinitialisation, activation des vibrations.
@@ -55,13 +55,14 @@ Sur Windows, passe le chemin d’Unreal sous Windows et utilise l’archive dont
 
 ### Activer GitHub Actions
 
-Le workflow construit le projet dans `Unreal/` depuis le dépôt public GitHub de Le Dernier Train. Le lanceur généré par la CI utilise ce dépôt comme source. Le tag `unreal-dev` permet aux deux générations du jeu de cohabiter. Pour les builds locaux, l’option `--repository propriétaire/dépôt` de `package_installer.py` sélectionne la même source.
+Le workflow construit le projet dans `Unreal/` depuis le dépôt public GitHub de Le Dernier Train. Le lanceur généré par la CI utilise ce dépôt comme source. La préversion roulante est publiée sous le tag `unreal-dev`. Pour les builds locaux, l’option `--repository propriétaire/dépôt` de `package_installer.py` sélectionne la même source.
 
-Enregistre deux runners dédiés au dépôt, Linux x86-64 et Windows x64, avec le label `unreal-5.8.4`. Installe les SDK, Python, Git, Bash et `gh`, puis configure `UNREAL_LINUX_ROOT` et `UNREAL_WINDOWS_ROOT` dans les variables Actions. Le script Windows utilise les redistribuables d’Unreal ou de Visual Studio. `UNREAL_WINDOWS_APPLOCAL_DIR` permet de fournir une arborescence Unreal alternative, par exemple `Win64/x64/Microsoft.VC143.CRT`.
+Enregistre un runner Linux x86-64 dédié au dépôt avec le label `unreal-5.8.4`. Installe Unreal Engine 5.8.4, son SDK, Python, Git, Bash et `gh`, puis renseigne `UNREAL_LINUX_ROOT` dans les variables Actions ou `UNREAL_ROOT` dans l’environnement du runner. Pour distribuer Windows, ajoute un runner Windows x64 avec le même label et configure `UNREAL_WINDOWS_ROOT`. Le script Windows utilise les redistribuables d’Unreal ou de Visual Studio. `UNREAL_WINDOWS_APPLOCAL_DIR` permet de fournir une arborescence Unreal alternative.
 
-Les PR qui modifient la distribution exécutent les tests du lanceur sur GitHub. Chaque mise à jour de `main` prépare les deux jeux et les deux installateurs, puis actualise la préversion `unreal-dev`. Les paquets transitent par un brouillon de release que le workflow supprime après publication. Le lanceur attend que les deux archives soient disponibles pour proposer un nouveau build. Une stable se lance manuellement sur un tag `vX.Y.Z` issu de `main`, par exemple avec `gh workflow run distribution.yml --ref v0.2.0`. GitHub génère les notes de version. Le dépôt doit autoriser la mise à jour de la préversion et de son tag `unreal-dev`.
+- **Dev** démarre à chaque push sur `main`. Le workflow prépare les paquets, puis actualise la préversion `unreal-dev`. Le lanceur cherche la dernière archive disponible pour sa plateforme.
+- **Stable** démarre quand une release GitHub stable est publiée avec un tag `vX.Y.Z` issu de `main` après intégration du workflow. GitHub Actions ajoute les archives et installateurs à cette release et génère les notes GitHub si elles sont vides. Il est aussi possible de lancer manuellement `gh workflow run distribution.yml --ref v0.2.0` sur le tag pour construire avant de rendre la release publique.
 
-Tant que `UNREAL_WINDOWS_ROOT` est vide, le workflow Dev construit Linux et conserve l’installateur dans le brouillon de release pour test. La publication des canaux Dev et Stable reprend une fois les deux plateformes configurées.
+Les archives et installateurs transitent par un brouillon de distribution supprimé après publication. Si Windows est absent de la configuration, les deux canaux publient leurs paquets Linux. Les PR de distribution exécutent uniquement les tests du lanceur.
 
 ## Développement
 

@@ -100,11 +100,12 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(self.installation.update(update.DEFAULT_REPO, 'dev', lambda *_: None), previous)
             self.assertEqual(http.call_count, 1)
 
-    def test_only_complete_dev_builds_are_selected(self):
+    def test_dev_updates_are_selected_per_platform(self):
         archive = bundle()
         metadata = release('dev', '102.1', archive)
         metadata['assets'].append(entry('dev', '103.1', 'linux', archive))
-        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'linux').version, '102.1')
+        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'linux').version, '103.1')
+        self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'windows').version, '102.1')
         metadata['assets'].append(entry('dev', '103.1', 'windows', archive))
         self.assertEqual(update.select_asset(metadata, update.DEFAULT_REPO, 'dev', 'windows').version, '103.1')
 

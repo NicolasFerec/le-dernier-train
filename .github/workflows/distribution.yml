@@ -3,9 +3,8 @@ name: Distribution Unreal
 on:
   push:
     branches: [main]
-    paths:
-      - 'Unreal/**'
-      - '.github/workflows/distribution.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +16,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: github.event_name != 'release' || (!github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -25,7 +25,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       staging: ${{ steps.staging.outputs.tag }}
       platforms: ${{ steps.platforms.outputs.matrix }}
-      complete: ${{ steps.platforms.outputs.complete }}
+      windows: ${{ steps.platforms.outputs.windows }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,13 +51,10 @@ jobs:
           linux='{"platform":"linux","labels":["self-hosted","Linux","X64","unreal-5.8.4"],"os":"ubuntu-24.04","unreal_root":"UNREAL_LINUX_ROOT"}'
           windows='{"platform":"windows","labels":["self-hosted","Windows","X64","unreal-5.8.4"],"os":"windows-2025","unreal_root":"UNREAL_WINDOWS_ROOT"}'
           if [[ -n "$WINDOWS_ENGINE" ]]; then
-            printf 'matrix={"include":[%s,%s]}\ncomplete=true\n' "$linux" "$windows" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            printf 'matrix={"include":[%s]}\ncomplete=false\n' "$linux" >> "$GITHUB_OUTPUT"
-            echo '::warning::Windows is not configured. The Linux installer will be available in the release draft. Dev will stay on its current release.'
+            printf 'matrix={"include":[%s,%s]}\nwindows=true\n' "$linux" "$windows" >> "$GITHUB_OUTPUT"
           else
-            echo '::error::Configure the Windows Unreal runner before publishing Stable.'
-            exit 1
+            printf 'matrix={"include":[%s]}\nwindows=false\n' "$linux" >> "$GITHUB_OUTPUT"
+            echo '::warning::Windows is not configured. This run publishes only the Linux packages.'
           fi
       - id: staging
         name: Open a private release draft for this build
@@ -170,7 +167,6 @@ jobs:
 
   publish:
     needs: [prepare, game, installer]
-    if: needs.prepare.outputs.complete == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -179,8 +175,15 @@ jobs:
       CHANNEL: ${{ needs.prepare.outputs.channel }}
       VERSION: ${{ needs.prepare.outputs.version }}
       STAGING_TAG: ${{ needs.prepare.outputs.staging }}
+      INCLUDE_WINDOWS: ${{ needs.prepare.outputs.windows }}
     steps:
       - uses: actions/checkout@v4
       - run: gh release download "$STAGING_TAG" --pattern 'Le-Dernier-Train-*' --dir artifacts
-      - run: python3 Unreal/Distribution/publish.py "$CHANNEL" "$VERSION" artifacts
+      - name: Publish packages for configured platforms
+        run: |
+          platforms=(--platform linux)
+          if [[ "$INCLUDE_WINDOWS" == true ]]; then
+            platforms+=(--platform windows)
+          fi
+          python3 Unreal/Distribution/publish.py "$CHANNEL" "$VERSION" artifacts "${platforms[@]}"
       - run: gh release delete "$STAGING_TAG" --yes

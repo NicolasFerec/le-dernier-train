@@ -57,7 +57,7 @@ def version_key(channel, version):
 
 
 def select_asset(release, repo, channel, platform):
-    """A Dev build is available only once both platforms have been uploaded."""
+    """Choose the newest uploaded archive for this installation’s platform."""
     if not REPO.fullmatch(repo) or channel not in CHANNELS or platform not in PLATFORMS:
         raise ValueError('Invalid update feed')
     tag = release.get('tag_name', '')
@@ -83,10 +83,10 @@ def select_asset(release, repo, channel, platform):
             if VERSION[channel].fullmatch(version) and (channel == 'dev' or version == tag):
                 url = f'https://github.com/{repo}/releases/download/{tag}/{name}'
                 builds.setdefault(version, {})[system] = Asset(channel, version, digest[7:], size, url)
-    complete = [version for version, assets in builds.items() if set(assets) == set(PLATFORMS)]
-    if not complete:
-        raise ValueError('No complete build for this channel')
-    version = max(complete, key=lambda item: version_key(channel, item))
+    available = [version for version, assets in builds.items() if platform in assets]
+    if not available:
+        raise ValueError('No build for this platform on this channel')
+    version = max(available, key=lambda item: version_key(channel, item))
     return builds[version][platform]
 
 
