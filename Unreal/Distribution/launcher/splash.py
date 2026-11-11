@@ -10,8 +10,8 @@ from pathlib import Path
 from tkinter import ttk
 
 from update import (
-    AlreadyRunning, DEFAULT_REPO, Installation,
-    installation_lock, launch_game, state_directory,
+    AlreadyRunning, DEFAULT_REPO, Installation, fetch_release, installation_lock,
+    launch_game, restart_launcher, select_launcher_asset, stage_launcher, state_directory,
 )
 
 ART = Path(__file__).resolve().parent
@@ -22,6 +22,8 @@ TEXT = {
     'check': ('Vérification des mises à jour…', 'Checking for updates…'),
     'download': ('Téléchargement de la mise à jour…', 'Downloading the update…'),
     'install': ('Installation de la mise à jour…', 'Installing the update…'),
+    'download_launcher': ('Téléchargement du lanceur…', 'Downloading the launcher…'),
+    'install_launcher': ('Installation du lanceur…', 'Installing the launcher…'),
     'launch': ('Lancement du jeu…', 'Starting the game…'),
     'fallback': ('Mise à jour indisponible. Lancement de la version installée…',
                  'Update unavailable. Starting the installed version…'),
@@ -46,11 +48,13 @@ def preference(path, choices, default):
 
 
 class Splash:
-    def __init__(self, root, installation, settings, repo):
+    def __init__(self, root, installation, settings, repo, executable, launcher_version):
         self.root = root
         self.installation = installation
         self.settings = settings
         self.repo = repo
+        self.executable = executable
+        self.launcher_version = launcher_version
         self.bundled_game = installation.bootstrap_asset()
         self.language = preference(settings / 'language.txt', ('fr', 'en'), 'fr')
         self.events = queue.SimpleQueue()
@@ -96,7 +100,7 @@ class Splash:
         self.button.configure(state='disabled')
         threading.Thread(target=self.check_updates, daemon=True).start()
 
-    def check_updates(self):
+    def check_updates(self, release=None):
         def progress(key, value):
             self.events.put(('progress', key, value))
 
@@ -108,7 +112,19 @@ class Splash:
             no_space = getattr(error, 'errno', None) in (errno.ENOSPC, getattr(errno, 'EDQUOT', -1))
             logging.exception('Unable to install the bundled game')
         try:
-            game = self.installation.update(self.repo, progress)
+            if release is None:
+                progress('check', None)
+                release = fetch_release(self.repo)
+                if self.executable:
+                    try:
+                        asset = select_launcher_asset(release, self.repo, self.launcher_version)
+                        if asset:
+                            candidate = stage_launcher(asset, self.executable, self.repo, progress)
+                            self.events.put(('restart', candidate, release))
+                            return
+                    except Exception:
+                        logging.exception('Unable to update the launcher')
+            game = self.installation.update(self.repo, progress, release=release)
             self.events.put(('ready', game, False))
         except Exception as error:
             logging.exception('Unable to update the game')
@@ -131,6 +147,13 @@ class Splash:
                 self.root.after(2200 if value else 200, self.play, data)
             elif event == 'error':
                 self.show_error(data)
+            elif event == 'restart':
+                try:
+                    restart_launcher(self.executable, data)
+                except OSError:
+                    logging.exception('Unable to restart the launcher')
+                    data.unlink(missing_ok=True)
+                    threading.Thread(target=self.check_updates, args=(value,), daemon=True).start()
         self.root.after(50, self.poll)
 
     def show_error(self, message):
@@ -161,18 +184,34 @@ class Splash:
 
 
 def main():
-    settings = state_directory()
-    settings.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(filename=settings / 'launcher.log', filemode='w', encoding='utf-8', level=logging.INFO)
     repo_path = ART / 'repository.txt'
     repo = repo_path.read_text(encoding='utf-8').strip() if repo_path.is_file() else DEFAULT_REPO
+    version = (ART / 'version.txt').read_text(encoding='utf-8').strip()
     platform = 'windows' if sys.platform == 'win32' else 'linux'
-    root = (Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False)
+    frozen = getattr(sys, 'frozen', False)
+    executable = Path(sys.executable).resolve() if frozen and platform == 'linux' else None
+    if sys.argv[1:2] == ['--check-launcher']:
+        if not executable or sys.argv[2:] != [version, repo]:
+            return 1
+        window = tk.Tk()
+        window.withdraw()
+        tk.PhotoImage(file=ART / 'depot.png')
+        tk.PhotoImage(file=ART / 'icon.png')
+        ttk.Style(window).theme_use('clam')
+        window.destroy()
+        return 0
+    root = (Path(sys.executable).resolve().parent if frozen
             else ART.parents[1] / 'Saved/Distribution/LauncherDevelopment')
     try:
         with installation_lock(root):
+            settings = state_directory()
+            settings.mkdir(parents=True, exist_ok=True)
+            logging.basicConfig(filename=settings / 'launcher.log', filemode='w', encoding='utf-8', level=logging.INFO)
             window = tk.Tk()
-            splash = Splash(window, Installation(root, platform), settings, repo)
+            splash = Splash(window, Installation(root, platform), settings, repo, executable, version)
+            if executable:
+                executable.with_name('.launcher-previous').unlink(missing_ok=True)
+                executable.with_name('.launcher-next').unlink(missing_ok=True)
             window.mainloop()
             if splash.process:
                 return splash.process.wait()

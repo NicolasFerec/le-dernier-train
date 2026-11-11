@@ -5,7 +5,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from launcher.update import PLATFORMS, VERSION, asset_name, version_key
+from launcher.update import PLATFORMS, VERSION, asset_name, launcher_asset_name, version_key
+from package_installer import LAUNCHER_VERSION
 
 
 def gh(*arguments, capture=False):
@@ -70,6 +71,8 @@ def main():
     }
     files = [args.artifacts / name for platform in args.platform
              for name in (asset_name(args.version, platform), installers[platform])]
+    if 'linux' in args.platform:
+        files.append(args.artifacts / launcher_asset_name(LAUNCHER_VERSION))
     missing = [file.name for file in files if not file.is_file()]
     if missing:
         raise ValueError(f'Missing release artifacts: {", ".join(missing)}')

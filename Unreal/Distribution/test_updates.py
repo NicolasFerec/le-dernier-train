@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import subprocess
 import stat
 import tempfile
 import unittest
@@ -111,6 +112,49 @@ class UpdateTests(unittest.TestCase):
         metadata['prerelease'] = True
         with self.assertRaises(ValueError):
             update.select_asset(metadata, update.DEFAULT_REPO, 'linux')
+
+    def test_launcher_update_uses_its_own_version_on_stable(self):
+        metadata = release('v0.2.2', bundle())
+        for version in ('v1.0.0', 'v1.1.0', 'v1.10.0'):
+            metadata['assets'].append({
+                **entry('v0.2.2', 'linux', b'launcher'),
+                'name': update.launcher_asset_name(version),
+            })
+        asset = update.select_launcher_asset(metadata, update.DEFAULT_REPO, 'v1.0.0')
+        self.assertEqual(asset.version, 'v1.10.0')
+        self.assertTrue(asset.url.endswith('/v0.2.2/Le-Dernier-Train-Launcher-v1.10.0-linux-x86_64'))
+        self.assertIsNone(update.select_launcher_asset(metadata, update.DEFAULT_REPO, 'v1.10.0'))
+        metadata['prerelease'] = True
+        with self.assertRaises(ValueError):
+            update.select_launcher_asset(metadata, update.DEFAULT_REPO, 'v1.0.0')
+
+    def test_bad_launcher_download_or_preflight_keeps_installed_executable(self):
+        self.directory.mkdir()
+        executable = self.directory / 'LeDernierTrainLauncher'
+        executable.write_bytes(b'installed')
+        payload = b'candidate'
+        asset = update.Asset('v1.1.0', hashlib.sha256(payload).hexdigest(), len(payload),
+                             'https://github.com/launcher')
+        with self.serve({}, b'tampered'), self.assertRaises(ValueError):
+            update.stage_launcher(asset, executable, update.DEFAULT_REPO, lambda *_: None)
+        with self.serve({}, payload), patch.object(update.subprocess, 'run',
+                                                    side_effect=subprocess.CalledProcessError(1, [])):
+            with self.assertRaises(subprocess.CalledProcessError):
+                update.stage_launcher(asset, executable, update.DEFAULT_REPO, lambda *_: None)
+        self.assertEqual(executable.read_bytes(), b'installed')
+        self.assertFalse((self.directory / '.launcher-next').exists())
+
+    def test_failed_launcher_restart_restores_previous_executable(self):
+        self.directory.mkdir()
+        executable = self.directory / 'LeDernierTrainLauncher'
+        executable.write_bytes(b'installed')
+        candidate = self.directory / '.launcher-next'
+        candidate.write_bytes(b'candidate')
+        with patch.object(update.os, 'execve', side_effect=OSError), self.assertRaises(OSError):
+            update.restart_launcher(executable, candidate)
+        self.assertEqual(executable.read_bytes(), b'installed')
+        self.assertFalse(candidate.exists())
+        self.assertFalse((self.directory / '.launcher-previous').exists())
 
     def test_reject_other_engine_packages(self):
         metadata = release('v0.1.5', bundle())

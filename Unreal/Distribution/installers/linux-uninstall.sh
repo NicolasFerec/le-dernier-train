@@ -15,6 +15,7 @@ for directory in "$app/versions" "$app/incoming"; do
     if [ -d "$directory" ]; then rm -r -- "$directory"; fi
 done
 for file in "$app/LeDernierTrainLauncher" "$app/icon.png" "$app/current-stable.json" \
+    "$app/.launcher-next" "$app/.launcher-previous" \
     "$app/current-dev.json" "$app/bootstrap.zip" "$app/bootstrap.json" \
     "$applications/le-dernier-train-unreal.desktop" "$app/uninstall.sh" "$app/.lock"; do
     if [ -e "$file" ]; then rm -- "$file"; fi
