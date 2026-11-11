@@ -3,6 +3,23 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'project.godot'
+      - '*.tres'
+      - 'export_presets.cfg'
+      - 'addons/**'
+      - 'arena/**'
+      - 'assets/**'
+      - 'audio/**'
+      - 'enemy/**'
+      - 'input/**'
+      - 'launcher/**'
+      - 'locale/**'
+      - 'network/**'
+      - 'player/**'
+      - 'progression/**'
+      - 'scripts/**'
+      - 'ui/**'
 
 permissions:
   contents: write

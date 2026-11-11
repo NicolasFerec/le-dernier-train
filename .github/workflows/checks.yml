@@ -1,0 +1,29 @@
+name: Distribution checks
+
+on:
+  pull_request:
+    paths:
+      - 'Unreal/Distribution/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s Unreal/Distribution -p 'test_*.py'
+      - if: runner.os == 'Linux'
+        run: |
+          sh -n Unreal/Distribution/installers/linux-setup.sh
+          sh -n Unreal/Distribution/installers/linux-uninstall.sh

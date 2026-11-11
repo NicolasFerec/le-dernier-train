@@ -1,0 +1,186 @@
+name: Distribution Unreal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Unreal/**'
+      - '.github/workflows/distribution.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unreal-distribution-${{ github.event_name == 'push' && 'dev' || 'stable' }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      channel: ${{ steps.release.outputs.channel }}
+      version: ${{ steps.release.outputs.version }}
+      staging: ${{ steps.staging.outputs.tag }}
+      platforms: ${{ steps.platforms.outputs.matrix }}
+      complete: ${{ steps.platforms.outputs.complete }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: release
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            printf 'channel=dev\nversion=%s.%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$GITHUB_REF_TYPE" != tag || ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]{0,9})\.(0|[1-9][0-9]{0,9})\.(0|[1-9][0-9]{0,9})$ ]]; then
+              echo 'Select a stable tag such as v0.2.0.' >&2
+              exit 1
+            fi
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+            printf 'channel=stable\nversion=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+      - id: platforms
+        env:
+          WINDOWS_ENGINE: ${{ vars.UNREAL_WINDOWS_ROOT }}
+        shell: bash
+        run: |
+          linux='{"platform":"linux","labels":["self-hosted","Linux","X64","unreal-5.8.4"],"os":"ubuntu-24.04","unreal_root":"UNREAL_LINUX_ROOT"}'
+          windows='{"platform":"windows","labels":["self-hosted","Windows","X64","unreal-5.8.4"],"os":"windows-2025","unreal_root":"UNREAL_WINDOWS_ROOT"}'
+          if [[ -n "$WINDOWS_ENGINE" ]]; then
+            printf 'matrix={"include":[%s,%s]}\ncomplete=true\n' "$linux" "$windows" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            printf 'matrix={"include":[%s]}\ncomplete=false\n' "$linux" >> "$GITHUB_OUTPUT"
+            echo '::warning::Windows is not configured. The Linux installer will be available in the release draft. Dev will stay on its current release.'
+          else
+            echo '::error::Configure the Windows Unreal runner before publishing Stable.'
+            exit 1
+          fi
+      - id: staging
+        name: Open a private release draft for this build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --latest=false \
+            --title "Distribution build $GITHUB_RUN_ID" --notes "Staging for GitHub Actions"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
+  game:
+    needs: prepare
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    runs-on: ${{ matrix.labels }}
+    timeout-minutes: 100
+    env:
+      TRAIN_ENGINE_PATH: ${{ vars[matrix.unreal_root] }}
+      TRAIN_WIN_APPLOCAL_DIR: ${{ vars.UNREAL_WINDOWS_APPLOCAL_DIR }}
+      CHANNEL: ${{ needs.prepare.outputs.channel }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile, cook and package the game
+        run: |
+          python Unreal/Distribution/package_game.py --engine "${TRAIN_ENGINE_PATH:-${UNREAL_ROOT:?Configure Unreal Engine on this runner}}" \
+            --channel "$CHANNEL" --version "$VERSION" --output artifacts
+      - name: Stage the game archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_TAG: ${{ needs.prepare.outputs.staging }}
+        run: gh release upload "$STAGING_TAG" artifacts/*.zip --clobber
+
+  installer:
+    needs: [prepare, game]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch the bundled game from the release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_TAG: ${{ needs.prepare.outputs.staging }}
+          PLATFORM: ${{ matrix.platform }}
+        shell: bash
+        run: gh release download "$STAGING_TAG" --pattern "*-$PLATFORM-x86_64.zip" --dir seed
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
+      - run: python -m pip install -r Unreal/Distribution/requirements.txt
+      - run: python -m unittest discover -s Unreal/Distribution -p 'test_*.py'
+      - run: python Unreal/Distribution/package_installer.py --repository "$GITHUB_REPOSITORY" --game seed/*.zip --output artifacts
+        shell: bash
+      - name: Verify the Linux Games entry and uninstaller
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y desktop-file-utils
+          export XDG_DATA_HOME="$RUNNER_TEMP/test install"
+          ./artifacts/Le-Dernier-Train-Setup-Linux-x86_64.run --no-launch
+          desktop-file-validate "$XDG_DATA_HOME/applications/le-dernier-train-unreal.desktop"
+          grep -Fx 'Categories=Game;' "$XDG_DATA_HOME/applications/le-dernier-train-unreal.desktop"
+          test -s "$XDG_DATA_HOME/le-dernier-train-unreal/bootstrap.zip"
+          "$XDG_DATA_HOME/le-dernier-train-unreal/uninstall.sh"
+          test ! -e "$XDG_DATA_HOME/applications/le-dernier-train-unreal.desktop"
+      - name: Verify the Windows Games shortcut and uninstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Start-Process (Resolve-Path 'artifacts/Le-Dernier-Train-Setup-Windows-x86_64.exe') '/S' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Setup failed with exit code $($setup.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Le Dernier Train Unreal'
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LeDernierTrainUnreal'
+          $links = @(Get-ChildItem ([Environment]::GetFolderPath('Programs')) -Recurse -Filter 'Le Dernier Train.lnk')
+          if ($links.Count -ne 1 -or !(Test-Path $key)) { throw 'Missing shortcut or uninstaller registration' }
+          if (!(Test-Path (Join-Path $app 'bootstrap.zip'))) { throw 'Missing bundled game' }
+          $link = (New-Object -ComObject WScript.Shell).CreateShortcut($links[0].FullName)
+          if ($link.TargetPath -ne (Join-Path $app 'LeDernierTrainLauncher.exe')) { throw 'Incorrect shortcut target' }
+          $uninstall = Start-Process (Join-Path $app 'Uninstall.exe') '/S' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path $key) -or (Test-Path $links[0].FullName)) { throw 'Uninstall failed' }
+      - name: Stage the installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_TAG: ${{ needs.prepare.outputs.staging }}
+        shell: bash
+        run: gh release upload "$STAGING_TAG" artifacts/Le-Dernier-Train-Setup-* --clobber
+
+  publish:
+    needs: [prepare, game, installer]
+    if: needs.prepare.outputs.complete == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHANNEL: ${{ needs.prepare.outputs.channel }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      STAGING_TAG: ${{ needs.prepare.outputs.staging }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release download "$STAGING_TAG" --pattern 'Le-Dernier-Train-*' --dir artifacts
+      - run: python3 Unreal/Distribution/publish.py "$CHANNEL" "$VERSION" artifacts
+      - run: gh release delete "$STAGING_TAG" --yes
