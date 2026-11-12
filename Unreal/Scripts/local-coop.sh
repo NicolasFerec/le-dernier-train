@@ -32,3 +32,31 @@ done
 for pid in "${pids[@]}"; do
     wait "$pid" || exit "$?"
 done
+if [[ ${TRAIN_COOP_SMOKE:-0} == 1 && $players == 2 ]]; then
+    python - "$project_dir/Saved/LocalCoopSmoke" <<'PY'
+import json
+import sys
+from pathlib import Path
+directory = Path(sys.argv[1])
+host = json.loads((directory / 'room-host.json').read_text())
+guest = json.loads((directory / 'room-guest.json').read_text())
+assert host['success'] and guest['success'], (host, guest)
+for field in ('seed','props','enemies'):
+    assert host[field]==guest[field], f'{field} differs: {host[field]} != {guest[field]}'
+# Native RepMovement quantizes positions to centimetres. A checksum after rounding
+# to 10 cm can disagree at a boundary even when the geometry is replicated correctly.
+remaining=guest['transforms'].copy()
+max_error=0.
+for expected in host['transforms']:
+    matches=[(i,sum((a-b)**2 for a,b in zip(expected[1:4],actual[1:4]))**.5)
+             for i,actual in enumerate(remaining)
+             if expected[0]==actual[0] and abs((expected[4]-actual[4]+180)%360-180)<1.]
+    assert matches, f'Missing replicated module: {expected}'
+    i,error=min(matches,key=lambda item:item[1])
+    assert error<=1.1, f'Module shifted by {error} cm: {expected} != {remaining[i]}'
+    max_error=max(max_error,error);remaining.pop(i)
+assert not remaining, f'Unexpected guest modules: {remaining}'
+print('Maximum native replication rounding (cm):',round(max_error,3))
+print('TRAIN_PCG_COOP_MATCH', host)
+PY
+fi

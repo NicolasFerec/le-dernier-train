@@ -1,0 +1,12 @@
+{
+  "asset": "/Game/Characters/Scout/Animations/Idle.Idle",
+  "samples": 121,
+  "max_sole_drift_cm": 5.8183205466409174e-05,
+  "max_feet_stagger_cm": 0.012850986504748363,
+  "knee_bend_degrees": [
+    17.36784859009424,
+    19.51502740896055
+  ],
+  "loop_continuity": true,
+  "breathing": true
+}

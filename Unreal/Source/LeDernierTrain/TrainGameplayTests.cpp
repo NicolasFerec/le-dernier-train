@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 #include "TrainPrototype.h"
+#include "TrainRooms.h"
 #include "TrainSettings.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/TextRenderActor.h"
@@ -12,6 +13,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "Engine/Engine.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Engine/World.h"
@@ -35,6 +37,8 @@ namespace
         TWeakObjectPtr<ATrainEnemy> MovingEnemy;
         FVector EnemyStart;
         int32 FirstKills=0;
+        int32 ExpectedRoom=2;
+        int32 TotalKills=0;
         void Next() { ++Phase;Since=FPlatformTime::Seconds(); }
     public:
         explicit FCheckGameplay(FAutomationTestBase* InTest):Test(InTest) {}
@@ -74,10 +78,10 @@ namespace
                 Test->TestEqual(TEXT("Five distinct workshop stations"),Stations,5);
                 Test->TestEqual(TEXT("Every workshop purpose is represented"),Kinds.Num(),5);
                 Test->TestEqual(TEXT("Three safe practice targets"),Dummies,3);
-                Test->TestNotNull(TEXT("Layer conductor is a skeletal mesh"),Pawn->GetMesh()->GetSkeletalMeshAsset());
+                Test->TestNotNull(TEXT("Conductor is a skeletal mesh"),Pawn->GetMesh()->GetSkeletalMeshAsset());
                 Test->TestTrue(TEXT("Dedicated ground root is present"),Pawn->GetMesh()->GetBoneIndex(TEXT("root"))!=INDEX_NONE);
-                Test->TestTrue(TEXT("Hand bone is present"),Pawn->GetMesh()->GetBoneIndex(TEXT("RightHand"))!=INDEX_NONE);
-                const double BodyHeight=FVector::Dist(Pawn->GetMesh()->GetBoneLocation(TEXT("Head")),Pawn->GetMesh()->GetBoneLocation(TEXT("RightFoot")));
+                Test->TestTrue(TEXT("UE mannequin hand bone is present"),Pawn->GetMesh()->GetBoneIndex(TEXT("hand_r"))!=INDEX_NONE);
+                const double BodyHeight=FVector::Dist(Pawn->GetMesh()->GetBoneLocation(TEXT("head")),Pawn->GetMesh()->GetBoneLocation(TEXT("foot_r")));
                 Test->TestTrue(TEXT("Animation preserves a human body scale"),BodyHeight>100 && BodyHeight<220);
                 OriginalProfile=Profile;OriginalPoints=Profile->Data->Points;OriginalUnlocks=Profile->Data->Unlocks;
                 OriginalCharacter=Profile->Data->Character;OriginalWeapon=Profile->Data->Weapon;
@@ -106,8 +110,8 @@ namespace
                 Test->TestNotNull(TEXT("Weapon component exists"),Weapon);
                 if (Weapon)
                 {
-                    Test->TestEqual(TEXT("Weapon follows the actual hand"),Weapon->GetAttachSocketName(),FName(TEXT("RightHand")));
-                    Test->TestTrue(TEXT("Grip is within the palm"),FVector::Dist(Weapon->GetComponentLocation(),Pawn->GetMesh()->GetSocketLocation(TEXT("RightHand")))<12);
+                    Test->TestEqual(TEXT("Weapon follows the actual hand"),Weapon->GetAttachSocketName(),FName(TEXT("hand_r")));
+                    Test->TestTrue(TEXT("Grip is within the palm"),FVector::Dist(Weapon->GetComponentLocation(),Pawn->GetMesh()->GetSocketLocation(TEXT("hand_r")))<12);
                     Test->TestTrue(TEXT("Hammer uses the Layer hammer mesh"),Weapon->GetStaticMesh()&&Weapon->GetStaticMesh()->GetName()==TEXT("hammer"));
                 }
                 TArray<UUserWidget*> Popups;UWidgetBlueprintLibrary::GetAllWidgetsOfClass(World,Popups,UTrainDamageNumber::StaticClass(),false);
@@ -131,15 +135,28 @@ namespace
                 Profile->Select(1,1);Pawn->SendLoadout();
                 Test->TestEqual(TEXT("Scout loadout is shared by the player state"),PS->Character,1);
                 Test->TestEqual(TEXT("Scout has different health"),PS->MaxHealth,100.f);
+                Test->TestEqual(TEXT("Scout has its own model"),Pawn->GetMesh()->GetSkeletalMeshAsset()->GetName(),FString(TEXT("SK_Scout")));
+                for (const FName Bone : {FName(TEXT("root")),FName(TEXT("pelvis")),FName(TEXT("hand_r")),FName(TEXT("index_01_r"))})
+                    Test->TestTrue(TEXT("Scout uses the UE mannequin hierarchy with fingers"),Pawn->GetMesh()->GetBoneIndex(Bone)!=INDEX_NONE);
+                for (const FName Component : {FName(TEXT("HeldWeapon")),FName(TEXT("OffhandWeapon"))})
+                {
+                    const auto* Held=FindObject<UStaticMeshComponent>(Pawn,*Component.ToString());
+                    if (Test->TestNotNull(TEXT("Scout weapon exists"),Held))
+                    {
+                        const FName Hand=Component==TEXT("HeldWeapon") ? FName(TEXT("hand_r")) : FName(TEXT("hand_l"));
+                        Test->TestEqual(TEXT("Scout weapon follows mannequin hand"),Held->GetAttachSocketName(),Hand);
+                        Test->TestTrue(TEXT("Scout grip stays inside palm"),FVector::Dist(Held->GetComponentLocation(),Pawn->GetMesh()->GetSocketLocation(Hand))<12);
+                    }
+                }
                 Profile->Select(0,0);Pawn->SendLoadout();
                 Teleport(GS->DeparturePoint+FVector(-150,0,95));World->GetAuthGameMode<ATrainGameMode>()->RequestDeparture(Pawn);
                 Next();return false;
             }
             if (Phase==5)
             {
-                if (Map!=TEXT("Pompage")) return false;
+                if (Map!=TEXT("Pompage") || !GS->RoomReady) return false;
                 FNavLocation Location;auto* Nav=FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
-                Test->TestTrue(TEXT("Room has a baked native navigation mesh"),Nav&&Nav->ProjectPointToNavigation(FVector(-1000,-500,0),Location,FVector(120,120,250)));
+                Test->TestTrue(TEXT("Room has native navigation at its safe entry"),Nav&&Nav->ProjectPointToNavigation(Pawn->GetActorLocation(),Location,FVector(120,120,250)));
                 TActorIterator<ATrainEnemy> First(World);if (First) MovingEnemy=*First;
                 if (!MovingEnemy.IsValid()) return false;
                 EnemyStart=MovingEnemy->GetActorLocation();Teleport(EnemyStart+FVector(-350,0,0));
@@ -152,7 +169,7 @@ namespace
                 PS->Health=76;
                 TArray<ATrainEnemy*> Enemies;for (TActorIterator<ATrainEnemy> It(World);It;++It) Enemies.Add(*It);
                 const FVector FirstBody=Enemies.IsEmpty()?FVector::ZeroVector:Enemies[0]->GetMesh()->GetComponentLocation();
-                FirstKills=Enemies.Num();for (auto* Enemy:Enemies) Enemy->Hit(Pawn,10000);
+                FirstKills=Enemies.Num();TotalKills=FirstKills;for (auto* Enemy:Enemies) Enemy->Hit(Pawn,10000);
                 bool FallenAtImpact=false;
                 for (TActorIterator<ASkeletalMeshActor> Body(World);Body;++Body)
                     FallenAtImpact|=FVector::Dist(Body->GetActorLocation(),FirstBody)<2;
@@ -164,22 +181,49 @@ namespace
             }
             if (Phase==7)
             {
-                if (Map!=TEXT("Fonderie") || GS->RemainingEnemies==0) return false;
-                Test->TestEqual(TEXT("Room number advances"),GS->RoomIndex,2);
-                Test->TestEqual(TEXT("Health survives travel instead of healing every room"),PS->Health,76.f);
-                Test->TestEqual(TEXT("Kill statistics survive travel"),PS->Kills,FirstKills);
-                TArray<ATrainEnemy*> Enemies;for (TActorIterator<ATrainEnemy> It(World);It;++It) Enemies.Add(*It);
-                for (auto* Enemy:Enemies) Enemy->Hit(Pawn,10000);
-                Teleport(GS->DeparturePoint+FVector(-150,0,95));World->GetAuthGameMode<ATrainGameMode>()->RequestDeparture(Pawn);
+                if (Map != TrainRooms::Faubourgs[ExpectedRoom - 1].Map || GS->RoomIndex != ExpectedRoom || !GS->RoomReady || GS->RemainingEnemies == 0)
+                    return false;
+                if (ExpectedRoom == 2)
+                {
+                    Test->TestEqual(TEXT("Health survives travel instead of healing every room"), PS->Health, 76.f);
+                    Test->TestEqual(TEXT("Kill statistics survive travel"), PS->Kills, FirstKills);
+                }
+                Test->TestEqual(TEXT("Cleared rooms survive travel"), GS->RoomsCleared, ExpectedRoom - 1);
+                auto* Path = UNavigationSystemV1::FindPathToLocationSynchronously(World, Pawn->GetActorLocation(),
+                    GS->DeparturePoint - FVector(160,0,0), Pawn);
+                Test->TestTrue(FString::Printf(TEXT("Room %d has a complete navigable route"), ExpectedRoom),
+                    Path && Path->IsValid() && !Path->IsPartial());
+                TArray<ATrainEnemy*> Enemies;
+                int32 Bosses = 0;
+                for (TActorIterator<ATrainEnemy> It(World); It; ++It)
+                {
+                    Enemies.Add(*It);
+                    auto* EnemyPath = UNavigationSystemV1::FindPathToLocationSynchronously(World,
+                        Pawn->GetActorLocation(), It->GetActorLocation(), Pawn);
+                    Test->TestTrue(FString::Printf(TEXT("Room %d enemy %s can be reached"),ExpectedRoom,*It->GetName()),
+                        EnemyPath && EnemyPath->IsValid() && !EnemyPath->IsPartial());
+                    Bosses += It->IsBoss() ? 1 : 0;
+                }
+                Test->TestEqual(TEXT("Bosses are placed in the lock and pump station"), Bosses,
+                    ExpectedRoom == 5 || ExpectedRoom == TrainRooms::Count ? 1 : 0);
+                TotalKills += Enemies.Num();
+                for (auto* Enemy : Enemies) Enemy->Hit(Pawn, 10000);
+                Teleport(GS->DeparturePoint + FVector(-150,0,95));
+                World->GetAuthGameMode<ATrainGameMode>()->RequestDeparture(Pawn);
+                if (ExpectedRoom++ < TrainRooms::Count)
+                {
+                    Since = FPlatformTime::Seconds();
+                    return false;
+                }
                 Next();return false;
             }
             if (Phase==8)
             {
                 if (Time<.3) return false;
                 Test->TestTrue(TEXT("Expedition ends with the victory summary"),GS->RunFinished&&GS->Victory);
-                Test->TestEqual(TEXT("Both rooms count in the summary"),GS->RoomsCleared,2);
-                Test->TestEqual(TEXT("Permanent reward is granted once"),Profile->Data->Points,4);
-                Test->TestTrue(TEXT("All kills are credited"),PS->Kills>=12);
+                Test->TestEqual(TEXT("All rooms count in the summary"),GS->RoomsCleared,TrainRooms::Count);
+                Test->TestEqual(TEXT("Permanent reward is granted once"),Profile->Data->Points,TrainRooms::Count+2);
+                Test->TestEqual(TEXT("All kills are credited"),PS->Kills,TotalKills);
                 return true;
             }
             return false;

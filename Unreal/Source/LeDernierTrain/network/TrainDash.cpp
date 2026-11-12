@@ -2,7 +2,7 @@
 #include "TrainNetwork.h"
 #include "../TrainPrototype.h"
 #include "../character/TrainAnimInstance.h"
-#include "Abilities/Tasks/AbilityTask_ApplyRootMotionJumpForce.h"
+#include "Abilities/Tasks/AbilityTask_ApplyRootMotionConstantForce.h"
 #include "Abilities/Tasks/AbilityTask_WaitDelay.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimSequence.h"
@@ -21,7 +21,7 @@ void UTrainDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
     auto* Character = Cast<ATrainPawn>(ActorInfo->AvatarActor.Get());
     auto* PS = Character ? Character->GetPlayerState<ATrainPlayerState>() : nullptr;
     auto* State = Character ? Character->GetWorld()->GetGameState<ATrainGameState>() : nullptr;
-    if (!Character || !Character->CanDodge() || !PS || PS->Health <= 0 || UGameplayStatics::IsGamePaused(Character) || !State || State->RunFinished || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+    if (!Character || !Character->CanDodge() || !PS || PS->Health <= 0 || UGameplayStatics::IsGamePaused(Character) || !State || !State->RoomReady || State->RunFinished || !CommitAbility(Handle, ActorInfo, ActivationInfo))
     { EndAbility(Handle, ActorInfo, ActivationInfo, true, true); return; }
     if (auto* Anim = Cast<UTrainAnimInstance>(Character->GetMesh()->GetAnimInstance()); Anim && Anim->Dodge)
     {
@@ -43,10 +43,14 @@ void UTrainDash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
     if (Direction.IsNearlyZero()) Direction = Character->GetActorForwardVector();
     const FRotator Facing(0, Direction.Rotation().Yaw, 0);
     Character->SetActorRotation(Facing);
-    auto* Task = UAbilityTask_ApplyRootMotionJumpForce::ApplyRootMotionJumpForce(
-        this, TEXT("Dodge"), Facing, 180.f, 24.f, LeapDuration, 0.f, false,
-        ERootMotionFinishVelocityMode::ClampVelocity, FVector::ZeroVector,
-        Movement->GetMaxSpeed(), nullptr, nullptr);
+    auto* Task = UAbilityTask_ApplyRootMotionConstantForce::ApplyRootMotionConstantForce(
+        this, TEXT("Dodge"), Direction, 1150.f, LeapDuration, false, nullptr,
+        ERootMotionFinishVelocityMode::SetVelocity, FVector::ZeroVector,
+        Movement->GetMaxSpeed(), true);
+    // A finite dodge must stop at its duration even when a frame crosses the end.
+    // ConstantForce defaults to preserving a full last tick for sustained forces.
+    if (auto Source=Movement->GetRootMotionSource(TEXT("Dodge")))
+        Source->Settings.UnSetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
     Task->ReadyForActivation();
     auto* Cooldown = UAbilityTask_WaitDelay::WaitDelay(this, CooldownDuration);
     Cooldown->OnFinish.AddDynamic(this, &UTrainDash::Finished); Cooldown->ReadyForActivation();

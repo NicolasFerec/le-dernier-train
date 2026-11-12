@@ -1,0 +1,36 @@
+
+/tmp/train-conductor-build.log
+Result: Succeeded
+
+/tmp/train-conductor-import.log
+[2026.11.12-10.51.50:061][  0]LogPython: TRAIN_CONDUCTOR_UE5_ASSETS_VALIDATED
+
+/tmp/train-conductor-assets.log
+[2026.11.12-10.57.54:454][  0]LogPython: TRAIN_COMBAT_ASSETS_VALIDATED
+[2026.11.12-10.57.54:483][  0]LogPython: TRAIN_SCOUT_ASSETS_VALIDATED
+
+/tmp/train-conductor-gameplay.log
+[2026.11.12-11.00.57:837][382]LogAutomationController: Display: Test Completed. Result={Success} Name={WagonAndRun} Path={LeDernierTrain.Gameplay.WagonAndRun}
+
+/tmp/train-conductor-tests.log
+[2026.11.12-10.58.48:731][384]LogAutomationController: Display: Test Completed. Result={Success} Name={EncounterBudgets} Path={LeDernierTrain.Generation.EncounterBudgets}
+[2026.11.12-10.59.13:126][485]LogAutomationController: Display: Test Completed. Result={Success} Name={RoomSeeds} Path={LeDernierTrain.Generation.RoomSeeds}
+[2026.11.12-10.59.14:001][512]LogAutomationController: Display: Test Completed. Result={Success} Name={ActionHints} Path={LeDernierTrain.Input.ActionHints}
+[2026.11.12-10.59.14:884][540]LogAutomationController: Display: Test Completed. Result={Success} Name={KeyboardLayouts} Path={LeDernierTrain.Input.KeyboardLayouts}
+[2026.11.12-10.59.33:936][434]LogAutomationController: Display: Test Completed. Result={Success} Name={FourPlayers} Path={LeDernierTrain.Network.FourPlayers}
+
+/tmp/train-conductor-review.log
+[2026.11.12-10.55.47:635][241]LogTemp: Display: CONDUCTOR_REVIEW_LOADOUT character=0 weapon=0
+[2026.11.12-10.55.47:635][241]LogTemp: Display: CONDUCTOR_REVIEW_MODEL SK_ConductorUE5 bones=43
+[2026.11.12-10.56.24:324][511]LogTemp: Display: CONDUCTOR_REVIEW_LOADOUT character=0 weapon=1
+[2026.11.12-10.56.49:221][691]LogTemp: Display: TRAIN_CONDUCTOR_REVIEW_COMPLETE frames=450 fps=30
+
+/tmp/train-conductor-coop.log
+Maximum native replication rounding (cm): 0.79
+TRAIN_PCG_COOP_MATCH {'success': True, 'seed': 112330559, 'props': 10, 'enemies': 8, 'layout': 3447445706, 'transforms': [[6, -5.567, 455.404, 155.0, 180.0], [0, -961.895, 500.614, 62.5, -90.0], [0, 877.386, -464.475, 62.5, 180.0], [0, 297.532, 835.952, 62.5, 180.0], [0, 764.318, 633.435, 62.5, 0.0], [0, 1457.036, 180.925, 62.5, 0.0], [6, 211.432, -472.094, 155.0, 0.0], [0, 422.21, 491.7, 62.5, -90.0], [6, 629.309, -115.744, 155.0, 0.0], [0, 1526.21, -238.958, 62.5, 0.0]]}
+
+Rendu actif, echelle 3D automatique :
+map,seed,enemies,samples,mean_fps,p50_ms,p95_ms,p99_ms,gpu_mean_ms,peak_process_mib
+Wagon,0,0,449,37.41,26.36,32.22,36.59,23.50,2485.8
+Faubourgs06,506958717,16,560,46.60,21.27,24.39,26.47,19.10,2545.3
+Faubourgs10,506958713,22,502,41.78,23.50,27.34,31.85,21.17,2569.4

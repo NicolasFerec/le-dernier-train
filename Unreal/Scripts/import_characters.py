@@ -15,6 +15,8 @@ def fbx(file,path,name,skeletal=False,animations=False,source_yaw=None):
     task.automated=True;task.save=True;task.replace_existing=True;task.replace_existing_settings=True
     opt=ue.FbxImportUI();opt.import_mesh=True;opt.import_as_skeletal=skeletal;opt.import_animations=animations
     opt.import_materials=True;opt.import_textures=False;opt.automated_import_should_detect_type=False
+    if skeletal:
+        opt.skeletal_mesh_import_data.set_editor_property('update_skeleton_reference_pose',True)
     opt.mesh_type_to_import=ue.FBXImportType.FBXIT_SKELETAL_MESH if skeletal else ue.FBXImportType.FBXIT_STATIC_MESH
     if source_yaw is not None:
         rotation=ue.Rotator(yaw=source_yaw)

@@ -1,4 +1,6 @@
 #include "TrainPrototype.h"
+#include "TrainRooms.h"
+#include "world/TrainRoomGeneration.h"
 #include "TrainSettings.h"
 #include "TimerManager.h"
 #include "network/TrainSession.h"
@@ -24,6 +26,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "AnimationRuntime.h"
 #include "character/TrainAnimInstance.h"
+#include "character/TrainCombatEffect.h"
 #include "progression/TrainProfile.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
@@ -113,8 +116,7 @@ namespace
 {
     const FName MenuMap(TEXT("Menu"));
     const FName WagonMap(TEXT("Wagon"));
-    const FName PumpMap(TEXT("Pompage"));
-    constexpr float CameraFieldHeight = 845.f;
+    constexpr float CameraFieldHeight = 650.f;
     const FLinearColor Brass(0.65f, 0.35f, 0.17f);
     const FLinearColor Ivory(0.94f, 0.84f, 0.67f);
 
@@ -144,9 +146,9 @@ ATrainPawn::ATrainPawn()
     GetCapsuleComponent()->InitCapsuleSize(24, 46);
     SetNetUpdateFrequency(60); SetMinNetUpdateFrequency(30);
     bUseControllerRotationYaw = false;
-    GetCharacterMovement()->MaxWalkSpeed = 385;
-    GetCharacterMovement()->MaxAcceleration = 4200;
-    GetCharacterMovement()->BrakingDecelerationWalking = 3400;
+    GetCharacterMovement()->MaxWalkSpeed = 510;
+    GetCharacterMovement()->MaxAcceleration = 6800;
+    GetCharacterMovement()->BrakingDecelerationWalking = 6200;
     GetCharacterMovement()->bOrientRotationToMovement = true;
     GetCharacterMovement()->RotationRate = FRotator(0,1440,0);
     GetCharacterMovement()->NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
@@ -155,21 +157,22 @@ ATrainPawn::ATrainPawn()
 
     GetCapsuleComponent()->InitCapsuleSize(30,90);
     GetMesh()->SetRelativeLocation(FVector(0,0,-90));
-    GetMesh()->SetSkeletalMesh(LoadObject<USkeletalMesh>(nullptr,TEXT("/Game/Characters/Conductor/SK_Conductor.SK_Conductor")));
+    GetMesh()->SetSkeletalMesh(LoadObject<USkeletalMesh>(nullptr,TEXT("/Game/Characters/ConductorUE5/SK_ConductorUE5.SK_ConductorUE5")));
     GetMesh()->SetAnimInstanceClass(UTrainAnimInstance::StaticClass());
     GetMesh()->SetMaterial(0,LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Characters/Conductor/M_Conductor.M_Conductor")));
+    ScoutModel=LoadObject<USkeletalMesh>(nullptr,TEXT("/Game/Characters/Scout/SK_Scout.SK_Scout"));
     GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     GetMesh()->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
     HeldWeapon=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeldWeapon"));
-    HeldWeapon->SetupAttachment(GetMesh(),TEXT("RightHand"));
+    HeldWeapon->SetupAttachment(GetMesh(),TEXT("hand_r"));
     HeldWeapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     OffhandWeapon=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandWeapon"));
-    OffhandWeapon->SetupAttachment(GetMesh(),TEXT("LeftHand"));OffhandWeapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    OffhandWeapon->SetupAttachment(GetMesh(),TEXT("hand_l"));OffhandWeapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     SpringArm=CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     SpringArm->SetupAttachment(GetRootComponent());SpringArm->SetUsingAbsoluteRotation(true);
     SpringArm->SetRelativeRotation(FRotator(-48,45,0));SpringArm->TargetArmLength=1800;
     SpringArm->TargetOffset=FVector(0,0,45);SpringArm->bDoCollisionTest=false;
-    SpringArm->bEnableCameraLag=true;SpringArm->CameraLagSpeed=10;
+    SpringArm->bEnableCameraLag=true;SpringArm->CameraLagSpeed=18;
     Camera=CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->SetupAttachment(SpringArm,USpringArmComponent::SocketName);
     Camera->SetProjectionMode(ECameraProjectionMode::Orthographic);Camera->SetOrthoWidth(CameraFieldHeight * 16.f / 9.f);
@@ -252,11 +255,24 @@ void ATrainPawn::Tick(float DeltaSeconds)
     Movement->bOrientRotationToMovement = SwingTime <= 0 && !Movement->GetRootMotionSource(TEXT("Dodge"));
     if (SwingTime>0) SetActorRotation(SwingDirection);
     if (!IsLocallyControlled()) return;
+    ImpactTime = FMath::Max(0.f, ImpactTime - DeltaSeconds);
+    SpringArm->TargetOffset = FVector(0,0,45 + FMath::Sin(ImpactTime * 85.f) * ImpactTime * 32.f);
+    if (BufferedAttack >= 0)
+    {
+        InputBufferTime -= DeltaSeconds;
+        if (IsMenuOpen() || InputBufferTime <= 0) BufferedAttack = -1;
+        else
+        {
+            const bool Heavy = BufferedAttack == 1;
+            if (Abilities->TryActivateAbilityByClass(Heavy ? UTrainHeavyAttack::StaticClass() : UTrainLightAttack::StaticClass()))
+                BufferedAttack = -1;
+        }
+    }
     if (auto* PC=Cast<APlayerController>(GetController()))
     { int32 Width=0,Height=0;PC->GetViewportSize(Width,Height);if (Height>0) Camera->SetOrthoWidth(CameraFieldHeight*float(Width)/Height); }
     const auto* PS = GetPlayerState<ATrainPlayerState>();
     const auto* GS = GetWorld()->GetGameState<ATrainGameState>();
-    if (PS && PS->Health > 0 && GS && !GS->RunFinished)
+    if (PS && PS->Health > 0 && GS && GS->RoomReady && !GS->RunFinished)
     {
         const auto Input = MovementInput();
         AddMovementInput(FVector(1,1,0).GetSafeNormal(), Input.Y);
@@ -434,23 +450,31 @@ void ATrainPawn::ApplyLoadout()
     if (auto* PS=GetPlayerState<ATrainPlayerState>())
     {
         if (HasAuthority()) { Character=PS->Character;Weapon=PS->Weapon; }
-        GetCharacterMovement()->MaxWalkSpeed=(Character?440:385)*(PS->SpeedUpgrade?1.15f:1.f);
+        GetCharacterMovement()->MaxWalkSpeed=(Character?560:510)*(PS->SpeedUpgrade?1.15f:1.f);
     }
-    if (auto* Material=GetMesh()->CreateDynamicMaterialInstance(0))
-        Material->SetVectorParameterValue(TEXT("OutfitTint"),Character?FLinearColor(.55f,.9f,1.3f):FLinearColor::White);
+    auto* Model=Character?ScoutModel.Get():LoadObject<USkeletalMesh>(nullptr,TEXT("/Game/Characters/ConductorUE5/SK_ConductorUE5.SK_ConductorUE5"));
+    if (Model && Model!=GetMesh()->GetSkeletalMeshAsset())
+    {
+        GetMesh()->EmptyOverrideMaterials();
+        GetMesh()->SetSkeletalMesh(Model);
+        GetMesh()->InitAnim(true);
+    }
     const bool Hammer=Character==0 && Weapon==1;
     HeldWeapon->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,Hammer ? TEXT("/Game/Weapons/hammer.hammer"):TEXT("/Game/Weapons/sabre.sabre")));
     HeldWeapon->SetRelativeScale3D(FVector(Hammer?.9f:Character&&Weapon?.55f:.95f));
     const auto& Skeleton=GetMesh()->GetSkeletalMeshAsset()->GetRefSkeleton();
     auto Grip=[this,&Skeleton](UStaticMeshComponent* Mesh,const TCHAR* Side,const FVector& HandleCenter)
     {
-        const FName Hand(*FString::Printf(TEXT("%sHand"),Side));
+        const bool UE5 = Skeleton.FindBoneIndex(TEXT("hand_r")) != INDEX_NONE;
+        const TCHAR* Suffix = FCString::Strcmp(Side,TEXT("Right"))==0 ? TEXT("r") : TEXT("l");
+        const FName Hand(*(UE5 ? FString::Printf(TEXT("hand_%s"),Suffix) : FString::Printf(TEXT("%sHand"),Side)));
         const int32 HandIndex=Skeleton.FindBoneIndex(Hand);
         if (HandIndex==INDEX_NONE) return;
         const FTransform HandPose=FAnimationRuntime::GetComponentSpaceTransformRefPose(Skeleton,HandIndex);
         auto PalmPoint=[&](const TCHAR* Finger)
         {
-            const int32 Index=Skeleton.FindBoneIndex(*FString::Printf(TEXT("%sHand%s1"),Side,Finger));
+            const FString Bone=UE5 ? FString::Printf(TEXT("%s_01_%s"),*FString(Finger).ToLower(),Suffix) : FString::Printf(TEXT("%sHand%s1"),Side,Finger);
+            const int32 Index=Skeleton.FindBoneIndex(*Bone);
             return Index!=INDEX_NONE ? HandPose.InverseTransformPosition(FAnimationRuntime::GetComponentSpaceTransformRefPose(Skeleton,Index).GetLocation()):FVector::ZeroVector;
         };
         const FVector FingerDirection=PalmPoint(TEXT("Middle"));
@@ -462,6 +486,15 @@ void ATrainPawn::ApplyLoadout()
             const FQuat Axes=FRotationMatrix::MakeFromXY(BladeDirection,FingerDirection).ToQuat();
             Mesh->SetRelativeRotation(Axes);
             Mesh->SetRelativeLocation(FingerDirection*.65f-Axes.RotateVector(HandleCenter*Mesh->GetRelativeScale3D()));
+        }
+        else if (Character==0 && UE5 && Suffix[0]==TEXT('r'))
+        {
+            // Closed glove: the generated UE5 hand has middle phalanges but no
+            // index/pinky landmarks. Bind-pose calibration is recorded in
+            // SourceArt/Characters/Conductor/UE5Rework/validation.json.
+            const FQuat Axes(.8124045834,-.0487389947,-.5760366176,-.0761913282);
+            Mesh->SetRelativeRotation(Axes);
+            Mesh->SetRelativeLocation(FVector(2.224758,-1.595244,-3.602174)-Axes.RotateVector(HandleCenter*Mesh->GetRelativeScale3D()));
         }
     };
     const FVector SabreHandle(0,7,-3);
@@ -477,21 +510,57 @@ float ATrainPawn::MeleeDuration(bool Heavy) const
 {
     const bool Hammer = Character == 0 && Weapon == 1;
     const bool Daggers = Character == 1 && Weapon == 1;
-    if (Hammer) return Heavy ? .82f : .48f;
-    if (Daggers) return Heavy ? .42f : .24f;
-    return Heavy ? .56f : .32f;
+    if (Hammer) return Heavy ? .64f : .39f;
+    if (Daggers) return Heavy ? .40f : .23f;
+    return Heavy ? .48f : .29f;
 }
 float ATrainPawn::MeleeContactTime(bool Heavy) const
 {
-    return MeleeDuration(Heavy) * (Heavy ? .375f : .35f);
+    return MeleeDuration(Heavy) * (Heavy ? .46f : .38f);
 }
 bool ATrainPawn::CanDodge() const
 {
     return SwingTime <= 0 && GetCharacterMovement()->IsMovingOnGround();
 }
 void ATrainPawn::Dash() { if (!IsMenuOpen() && CanDodge()) Abilities->TryActivateAbilityByClass(UTrainDash::StaticClass()); }
-void ATrainPawn::Attack() { if (!IsMenuOpen()) Abilities->TryActivateAbilityByClass(UTrainLightAttack::StaticClass()); }
-void ATrainPawn::HeavyAttack() { if (!IsMenuOpen()) Abilities->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass()); }
+void ATrainPawn::QueueAttack(bool Heavy)
+{
+    if (IsMenuOpen()) return;
+    BufferedAttack = Heavy ? 1 : 0;
+    InputBufferTime = .20f;
+    if (Abilities->TryActivateAbilityByClass(Heavy ? UTrainHeavyAttack::StaticClass() : UTrainLightAttack::StaticClass()))
+        BufferedAttack = -1;
+}
+void ATrainPawn::Attack() { QueueAttack(false); }
+void ATrainPawn::HeavyAttack() { QueueAttack(true); }
+void ATrainPawn::FaceAttackTarget()
+{
+    FVector Forward = GetActorForwardVector();
+    const FVector Acceleration = GetCharacterMovement()->GetCurrentAcceleration().GetSafeNormal2D();
+    if (!Acceleration.IsNearlyZero()) Forward = Acceleration;
+    float BestScore = 0;
+    FVector Aim = Forward;
+    for (TActorIterator<ATrainEnemy> It(GetWorld()); It; ++It)
+    {
+        const FVector Delta = It->GetActorLocation() - GetActorLocation();
+        const float Distance = Delta.Size2D();
+        const float Alignment = FVector::DotProduct(Delta.GetSafeNormal2D(), Forward);
+        if (It->Health <= 0 || Distance > 310 || Alignment < .15f) continue;
+        FCollisionQueryParams Query(SCENE_QUERY_STAT(TrainAim),false,this);
+        Query.AddIgnoredActor(*It);
+        if (GetWorld()->LineTraceTestByChannel(GetActorLocation(),It->GetActorLocation(),ECC_Visibility,Query)) continue;
+        const float Score = Alignment + 1.f - Distance / 310.f;
+        if (Score > BestScore) { BestScore = Score; Aim = Delta.GetSafeNormal2D(); }
+    }
+    SetActorRotation(FRotator(0,Aim.Rotation().Yaw,0));
+}
+void ATrainPawn::ConfirmImpact_Implementation(bool Heavy)
+{
+    if (!IsLocallyControlled()) return;
+    ImpactTime = Heavy ? .16f : .09f;
+    if (auto* PC=Cast<APlayerController>(GetController()); PC && UTrainSettings::Get()->Vibration)
+        PC->PlayDynamicForceFeedback(Heavy?.55f:.23f,Heavy?.14f:.07f,true,true,true,true);
+}
 void ATrainPawn::PredictMelee(bool Heavy)
 { MulticastSwing_Implementation(Heavy,GetActorRotation());PredictedMelee=true; }
 void ATrainPawn::CancelPredictedMelee()
@@ -502,8 +571,10 @@ void ATrainPawn::CancelPredictedMelee()
 void ATrainPawn::ServerAttack_Implementation(bool Heavy)
 {
     auto* PS=GetPlayerState<ATrainPlayerState>();auto* GS=GetWorld()->GetGameState<ATrainGameState>();
-    if (!PS || PS->Health<=0 || !GS || GS->RunFinished || AttackCooldown>0 || !GetCharacterMovement()->IsMovingOnGround() || UGameplayStatics::IsGamePaused(this)) return;
+    if (!PS || PS->Health<=0 || !GS || !GS->RoomReady || GS->RunFinished || AttackCooldown>0 || !GetCharacterMovement()->IsMovingOnGround()
+        || GetCharacterMovement()->GetRootMotionSource(TEXT("Dodge")) || UGameplayStatics::IsGamePaused(this)) return;
     AttackCooldown = MeleeDuration(Heavy);
+    FaceAttackTarget();
     const FRotator Direction=GetActorRotation();MulticastSwing(Heavy,Direction);
     // A native montage supplies the motion. Its contact time is shared by authoritative damage.
     GetWorldTimerManager().SetTimer(StrikeTimer,FTimerDelegate::CreateWeakLambda(this,[this,Heavy,Direction](){ResolveStrike(Heavy,Direction);}),MeleeContactTime(Heavy),false);
@@ -517,10 +588,13 @@ void ATrainPawn::ResolveStrike(bool Heavy,FRotator Direction)
     auto InArc=[&](AActor* Target)
     {
         const FVector Delta=Target->GetActorLocation()-GetActorLocation();
-        return Delta.SizeSquared2D()<FMath::Square(Reach) && FVector::DotProduct(Delta.GetSafeNormal2D(),Direction.Vector())>(Heavy?-.05f:.2f);
+        FCollisionQueryParams Query(SCENE_QUERY_STAT(TrainMeleeSight),false,this);
+        Query.AddIgnoredActor(Target);
+        return Delta.SizeSquared2D()<FMath::Square(Reach) && FVector::DotProduct(Delta.GetSafeNormal2D(),Direction.Vector())>(Heavy?-.05f:.2f)
+            && !GetWorld()->LineTraceTestByChannel(GetActorLocation(),Target->GetActorLocation(),ECC_Visibility,Query);
     };
-    for (TActorIterator<ATrainDummy> It(GetWorld());It;++It) if (InArc(*It)) It->Hit(Damage);
-    if (!bWagon) for (TActorIterator<ATrainEnemy> It(GetWorld());It;++It) if (InArc(*It)) It->Hit(this,Damage);
+    for (TActorIterator<ATrainDummy> It(GetWorld());It;++It) if (InArc(*It)) { It->Hit(Damage); ConfirmImpact(Heavy); }
+    if (!bWagon) for (TActorIterator<ATrainEnemy> It(GetWorld());It;++It) if (InArc(*It)) { It->Hit(this,Damage); ConfirmImpact(Heavy); }
 }
 void ATrainPawn::MulticastSwing_Implementation(bool Heavy,FRotator Direction)
 {
@@ -528,7 +602,17 @@ void ATrainPawn::MulticastSwing_Implementation(bool Heavy,FRotator Direction)
     // Release facing and allow the dodge once the strike has passed contact.
     SwingTime = MeleeContactTime(Heavy) + .05f;
     SwingDirection = Direction;
-    if (auto* Anim=Cast<UTrainAnimInstance>(GetMesh()->GetAnimInstance())) Anim->Action(Character==0&&Weapon==1?(Heavy?TEXT("HammerHeavy"):TEXT("HammerLight")):(Heavy?TEXT("Heavy"):TEXT("Light")),MeleeDuration(Heavy));
+    const double Now = GetWorld()->GetTimeSeconds();
+    ComboIndex = !Heavy && Now-LastSwingAt < .72 ? 1-ComboIndex : 0;
+    LastSwingAt = Now;
+    const FName Clip = Character==1&&Weapon==1&&Heavy ? TEXT("DualHeavy") : Character==0&&Weapon==1 ? (Heavy?TEXT("HammerHeavy"):TEXT("HammerLight"))
+        : Heavy?TEXT("Heavy"):ComboIndex?TEXT("LightReturn"):TEXT("Light");
+    if (auto* Anim=Cast<UTrainAnimInstance>(GetMesh()->GetAnimInstance())) Anim->Action(Clip,MeleeDuration(Heavy));
+    FTimerHandle TrailTimer;
+    GetWorldTimerManager().SetTimer(TrailTimer, FTimerDelegate::CreateWeakLambda(this,[this,Direction,Heavy]()
+    {
+        ATrainCombatEffect::Spawn(GetWorld(),GetActorLocation()-FVector(0,0,40),Direction,false,Heavy);
+    }),MeleeContactTime(Heavy),false);
     const TCHAR* Track=Heavy?TEXT("heavy_swing"):Character&&Weapon?TEXT("dagger_swing"):TEXT("blade_swing");
     if (auto* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Track,Track))) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation());
 }
@@ -570,7 +654,7 @@ void ATrainGameMode::StartPlay()
     auto* GS = GetGameState<ATrainGameState>();
     if (auto* Session=GetGameInstance<UTrainSession>()) GS->RoomsCleared=Session->RoomsCleared;
     GS->DeparturePoint = IsMap(this,WagonMap) ? FVector(2650,0,0) : FVector(2050,1250,0);
-    GS->RoomIndex=IsMap(this,WagonMap)?0:IsMap(this,PumpMap)?1:2;
+    GS->RoomIndex = TrainRooms::Index(UGameplayStatics::GetCurrentLevelName(this));
     if (GameSession) GameSession->MaxPlayers = 4;
     if (auto* Session = GetGameInstance<UTrainSession>()) Session->SetJoinable(IsMap(this, WagonMap));
     if (!IsMap(this,MenuMap) && !IsMap(this,WagonMap))
@@ -578,11 +662,36 @@ void ATrainGameMode::StartPlay()
         TArray<AActor*> Templates;
         for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
             if (It->ActorHasTag(TEXT("Automate"))) Templates.Add(*It);
-        for (auto* Template : Templates)
+        if (GS->RoomIndex>0)
+        {
+            for (auto* Template:Templates) Template->Destroy();
+            auto* Session=GetGameInstance<UTrainSession>();
+            if (!Session->ExpeditionCrew) Session->ExpeditionCrew=FMath::Clamp(GS->PlayerArray.Num(),1,4);
+            if (!Session->ExpeditionSeed)
+            {
+                Session->ExpeditionSeed=FGuid::NewGuid().A&MAX_int32;
+#if !UE_BUILD_SHIPPING
+                FParse::Value(FCommandLine::Get(),TEXT("TrainSeed="),Session->ExpeditionSeed);
+#endif
+            }
+            auto* Generator=GetWorld()->SpawnActor<ATrainRoomGenerator>();
+            Generator->Initialize(GS->RoomIndex,HashCombineFast(Session->ExpeditionSeed,GS->RoomIndex)&MAX_int32);
+        }
+        else for (auto* Template : Templates)
         {
             FActorSpawnParameters Params; Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-            GetWorld()->SpawnActor<ATrainEnemy>(Template->GetActorLocation(), FRotator::ZeroRotator, Params);
-            Template->Destroy(); ++GS->RemainingEnemies;
+            if (auto* Enemy = GetWorld()->SpawnActor<ATrainEnemy>(Template->GetActorLocation(), Template->GetActorRotation(), Params))
+            {
+                ETrainEnemyType Type = ETrainEnemyType::Patrol;
+                if (Template->ActorHasTag(TEXT("Sentry"))) Type = ETrainEnemyType::Sentry;
+                else if (Template->ActorHasTag(TEXT("Runner"))) Type = ETrainEnemyType::Runner;
+                else if (Template->ActorHasTag(TEXT("Gunner"))) Type = ETrainEnemyType::Gunner;
+                else if (Template->ActorHasTag(TEXT("Lockkeeper"))) Type = ETrainEnemyType::Lockkeeper;
+                else if (Template->ActorHasTag(TEXT("Guardian"))) Type = ETrainEnemyType::Guardian;
+                Enemy->Configure(Type);
+                ++GS->RemainingEnemies;
+            }
+            Template->Destroy();
         }
     }
     if (IsMap(this,WagonMap)) for (APlayerState* Base:GS->PlayerArray)
@@ -622,7 +731,7 @@ void ATrainGameMode::RequestDeparture(ATrainPawn* Requester)
 {
     auto* Controller = Cast<ATrainPlayerController>(Requester->GetController());
     auto* State = GetGameState<ATrainGameState>();
-    if (!Controller || !State || State->RunFinished || IsMap(this, MenuMap) || UGameplayStatics::IsGamePaused(this)) return;
+    if (!Controller || !State || !State->RoomReady || State->RunFinished || IsMap(this, MenuMap) || UGameplayStatics::IsGamePaused(this)) return;
 
     const auto* Host = Controller->GetPlayerState<ATrainPlayerState>();
     if (!Host || !Host->IsHost)
@@ -646,12 +755,18 @@ void ATrainGameMode::Depart()
 {
     GetGameState<ATrainGameState>()->DepartureAt=0;
     const bool Wagon=IsMap(this,WagonMap);
+    if (Wagon)
+    {
+        GetGameInstance<UTrainSession>()->ExpeditionSeed=0;
+        GetGameInstance<UTrainSession>()->ExpeditionCrew=FMath::Clamp(GetGameState<ATrainGameState>()->PlayerArray.Num(),1,4);
+    }
     if (auto* Session=GetGameInstance<UTrainSession>()) Session->RoomsCleared = Wagon ? 0 : GetGameState<ATrainGameState>()->RoomsCleared;
     if (Wagon)
         for (APlayerState* State:GetGameState<ATrainGameState>()->PlayerArray)
             if (auto* PS=Cast<ATrainPlayerState>(State)) { PS->Kills=0; PS->DamageTaken=0; PS->DamageDealt=0; PS->Health=PS->MaxHealth; }
-    if (Wagon) GetWorld()->ServerTravel(TEXT("/Game/Maps/Pompage"));
-    else if (IsMap(this,PumpMap)) GetWorld()->ServerTravel(TEXT("/Game/Maps/Fonderie"));
+    const int32 RoomIndex = GetGameState<ATrainGameState>()->RoomIndex;
+    if ((Wagon || RoomIndex > 0) && RoomIndex < TrainRooms::Count)
+        GetWorld()->ServerTravel(FString(TEXT("/Game/Maps/")) + TrainRooms::Faubourgs[RoomIndex].Map);
     else FinishRun(true);
 }
 void ATrainGameMode::Tick(float DeltaSeconds)
@@ -659,7 +774,7 @@ void ATrainGameMode::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds); auto* GS=GetGameState<ATrainGameState>();
     if (!GS || IsMap(this,MenuMap)) return;
     if (GS->DepartureAt>0 && (EveryoneReady() || GS->GetServerWorldTimeSeconds()>=GS->DepartureAt)) { Depart(); return; }
-    if (IsMap(this,WagonMap) || GS->RunFinished || GS->PlayerArray.IsEmpty()) return;
+    if (IsMap(this,WagonMap) || !GS->RoomReady || GS->RunFinished || GS->PlayerArray.IsEmpty()) return;
     bool Alive=false;
     for (APlayerState* State:GS->PlayerArray) if (auto* PS=Cast<ATrainPlayerState>(State)) Alive |= PS->Health>0;
     if (!Alive) FinishRun(false);

@@ -1,0 +1,32 @@
+
+/tmp/train-scout-build.log
+Result: Succeeded
+
+/tmp/train-scout-repair.log
+[2026.11.12-13.23.11:839][  0]LogPython: TRAIN_SCOUT_IDLE_REBUILT 121 keys 4.0 seconds
+[2026.11.12-13.23.11:874][  0]LogPython: TRAIN_SCOUT_IDLE_VALIDATED {"asset": "/Game/Characters/Scout/Animations/Idle.Idle", "samples": 121, "max_sole_drift_cm": 5.8183205466409174e-05, "max_feet_stagger_cm": 0.012850986504748363, "knee_bend_degrees": [17.36784859009424, 19.51502740896055], "loop_continuity": true, "breathing": true}
+
+/tmp/train-scout-assets.log
+[2026.11.12-13.26.01:270][  0]LogPython: TRAIN_COMBAT_ASSETS_VALIDATED
+[2026.11.12-13.26.01:293][  0]LogPython: TRAIN_SCOUT_ASSETS_VALIDATED
+[2026.11.12-13.26.01:331][  0]LogPython: TRAIN_SCOUT_IDLE_VALIDATED {"asset": "/Game/Characters/Scout/Animations/Idle.Idle", "samples": 121, "max_sole_drift_cm": 5.8183205466409174e-05, "max_feet_stagger_cm": 0.012850986504748363, "knee_bend_degrees": [17.36784859009424, 19.51502740896055], "loop_continuity": true, "breathing": true}
+
+/tmp/train-scout-before.log
+[2026.11.12-13.19.53:512][241]LogTemp: Display: TRAIN_SCOUT_REVIEW_MODEL SK_Scout bones=72
+[2026.11.12-13.20.26:842][481]LogTemp: Display: TRAIN_SCOUT_REVIEW_COMPLETE label=before frames=240 fps=30
+
+/tmp/train-scout-after.log
+[2026.11.12-13.24.00:619][241]LogTemp: Display: TRAIN_SCOUT_REVIEW_MODEL SK_Scout bones=72
+[2026.11.12-13.25.10:882][751]LogTemp: Display: TRAIN_SCOUT_REVIEW_COMPLETE label=after frames=510 fps=30
+
+/tmp/train-scout-tests.log
+[2026.11.12-13.27.21:718][387]LogAutomationController: Display: Test Completed. Result={Success} Name={WagonAndRun} Path={LeDernierTrain.Gameplay.WagonAndRun}
+[2026.11.12-13.27.21:757][389]LogAutomationController: Display: Test Completed. Result={Success} Name={EncounterBudgets} Path={LeDernierTrain.Generation.EncounterBudgets}
+[2026.11.12-13.27.44:793][484]LogAutomationController: Display: Test Completed. Result={Success} Name={RoomSeeds} Path={LeDernierTrain.Generation.RoomSeeds}
+[2026.11.12-13.27.45:602][512]LogAutomationController: Display: Test Completed. Result={Success} Name={ActionHints} Path={LeDernierTrain.Input.ActionHints}
+[2026.11.12-13.27.46:391][541]LogAutomationController: Display: Test Completed. Result={Success} Name={KeyboardLayouts} Path={LeDernierTrain.Input.KeyboardLayouts}
+[2026.11.12-13.28.05:053][452]LogAutomationController: Display: Test Completed. Result={Success} Name={FourPlayers} Path={LeDernierTrain.Network.FourPlayers}
+
+/tmp/train-scout-coop.log
+Maximum native replication rounding (cm): 0.792
+TRAIN_PCG_COOP_MATCH {'success': True, 'seed': 112338372, 'props': 10, 'enemies': 8, 'layout': 3557072361, 'transforms': [[0, -1077.571, -812.56, 62.5, 0.0], [0, 904.939, -619.02, 62.5, 90.0], [0, 1381.037, -379.091, 62.5, 180.0], [0, -1371.46, 53.093, 62.5, 0.0], [6, -731.799, 513.743, 155.0, 180.0], [0, 632.573, -201.71, 62.5, 90.0], [0, -201.807, 337.549, 62.5, 0.0], [0, 981.121, -25.193, 62.5, 90.0], [0, -72.798, -366.343, 62.5, -90.0], [0, 469.116, 721.803, 62.5, -90.0]]}

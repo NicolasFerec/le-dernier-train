@@ -4,6 +4,7 @@
 #include "TrainMelee.h"
 #include "../TrainPrototype.h"
 #include "../TrainSettings.h"
+#include "../world/TrainRoomGeneration.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
@@ -30,6 +31,8 @@ namespace
         FVector Before;
         bool Pressed=false,Released=false,Dash=false,Light=false,Heavy=false,Shot=false,Moved=false,Predicted=false,Placed=false,Reported=false;
         bool Passed = false, PredictedDash = false;
+        bool Traveling=false,RoomReported=false;
+        double RoomReadyAt=0;
         bool Tick(float Delta)
         {
             for (const auto& Context:GEngine->GetWorldContexts()) if (Context.WorldType==EWorldType::Game) World=Context.World();
@@ -42,6 +45,7 @@ namespace
             if (!Ready && GS->PlayerArray.Num()>=2)
             {
                 Ready=FPlatformTime::Seconds();Before=Pawn->GetActorLocation();
+                if (!Host) Pawn->ServerLoadout(1,1,false,false);
                 if (Host) for (TActorIterator<ATrainPawn> It(W);It;++It)
                     if (*It!=Pawn) { Before=It->GetActorLocation();break; }
             }
@@ -91,7 +95,11 @@ namespace
                 Reported=true;
                 bool Accepted=false;for (APlayerState* State:GS->PlayerArray)
                     if (auto* PS=Cast<ATrainPlayerState>(State);PS && PS->DashReadyAt>0) Accepted=true;
-                Passed = GS->PlayerArray.Num()==2 && (Host ? Accepted && Moved : Moved && Dash && PredictedDash && Light && Heavy && Predicted);
+                bool ScoutReady=false;
+                for (TActorIterator<ATrainPawn> It(W);It;++It)
+                    ScoutReady|=It->Character==1 && It->GetMesh()->GetBoneIndex(TEXT("index_01_r"))!=INDEX_NONE;
+                UE_LOG(LogTemp,Display,TEXT("TRAIN_COOP_SCOUT_UE5 %s"),ScoutReady?TEXT("OK"):TEXT("FAILED"));
+                Passed = ScoutReady && GS->PlayerArray.Num()==2 && (Host ? Accepted && Moved : Moved && Dash && PredictedDash && Light && Heavy && Predicted);
                 const FString Json=FString::Printf(TEXT("{\"role\":\"%s\",\"success\":%s,\"players\":%d,\"moved\":%s,\"dash\":%s,\"light\":%s,\"heavy\":%s,\"predicted_animation\":%s,\"server_accepted_dash\":%s}"),
                     Host?TEXT("host"):TEXT("guest"),Passed?TEXT("true"):TEXT("false"),GS->PlayerArray.Num(),Moved?TEXT("true"):TEXT("false"),Dash?TEXT("true"):TEXT("false"),Light?TEXT("true"):TEXT("false"),Heavy?TEXT("true"):TEXT("false"),Predicted?TEXT("true"):TEXT("false"),Accepted?TEXT("true"):TEXT("false"));
                 const FString Dir=FPaths::ProjectSavedDir()/TEXT("LocalCoopSmoke");IFileManager::Get().MakeDirectory(*Dir,true);
@@ -102,9 +110,34 @@ namespace
             }
             if (Reported)
             {
-                if (!FParse::Param(FCommandLine::Get(),TEXT("TrainCoopSmokeExit"))) return false;
-                // The host leaves last so the guest can write its complete result first.
-                if (!Host || Time>8) { FPlatformMisc::RequestExitWithStatus(false, Passed ? 0 : 1);return false; }
+                if (!Passed) { FPlatformMisc::RequestExitWithStatus(false,1);return false; }
+                if (Host && Time>7 && !Traveling) { Traveling=true;W->ServerTravel(TEXT("/Game/Maps/Pompage")); }
+                int32 Enemies=0;for (TActorIterator<ATrainEnemy> It(W);It;++It) ++Enemies;
+                TArray<FString> Modules,Transforms;
+                for (TActorIterator<ATrainRoomProp> It(W);It;++It)
+                {
+                    const FVector P=It->GetActorLocation();
+                    Transforms.Add(FString::Printf(TEXT("[%d,%.3f,%.3f,%.3f,%.3f]"),It->Kind,P.X,P.Y,P.Z,It->GetActorRotation().Yaw));
+                    Modules.Add(FString::Printf(TEXT("%d:%d:%d:%d"),It->Kind,FMath::RoundToInt(P.X/10),FMath::RoundToInt(P.Y/10),(FMath::RoundToInt(It->GetActorRotation().Yaw)+360)%360));
+                }
+                if (GS->RoomIndex==1 && GS->RoomReady && Modules.Num()==GS->LayoutProps && Enemies==GS->RemainingEnemies && !RoomReadyAt)
+                    RoomReadyAt=FPlatformTime::Seconds();
+                if (RoomReadyAt && !RoomReported && FPlatformTime::Seconds()-RoomReadyAt>1)
+                {
+                    RoomReported=true;Passed=Passed&&Modules.Num()>=3&&Enemies>0;Modules.Sort();
+                    const FString Json=FString::Printf(TEXT("{\"success\":%s,\"seed\":%d,\"props\":%d,\"enemies\":%d,\"layout\":%u,\"transforms\":[%s]}"),
+                        Passed?TEXT("true"):TEXT("false"),GS->RoomSeed,Modules.Num(),Enemies,FCrc::StrCrc32(*FString::Join(Modules,TEXT("|"))),*FString::Join(Transforms,TEXT(",")));
+                    const FString Role=Host?TEXT("host"):TEXT("guest");
+                    FFileHelper::SaveStringToFile(Json,*(FPaths::ProjectSavedDir()/TEXT("LocalCoopSmoke")/(TEXT("room-")+Role+TEXT(".json"))));
+                    UE_LOG(LogTemp,Display,TEXT("TRAIN_PCG_COOP %s %s"),*Role,*Json);
+                    FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("PrototypeCaptures")/(TEXT("pcg-coop-")+Role+TEXT(".png")),true,false);
+                }
+                // Leave the host alive long enough for the guest's final replication check.
+                if (RoomReported && FPlatformTime::Seconds()-RoomReadyAt>(Host?5:2))
+                {
+                    if (FParse::Param(FCommandLine::Get(),TEXT("TrainCoopSmokeExit"))) FPlatformMisc::RequestExitWithStatus(false,Passed?0:1);
+                    return false;
+                }
             }
             return true;
         }

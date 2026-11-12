@@ -4,24 +4,60 @@ Ouvrir `LeDernierTrain.uproject` dans Unreal Engine 5.8 et lancer **Play** depui
 
 Le wagon-atelier comporte cinq postes physiques : vestiaire, arsenal, passifs, télégraphe de l’équipage et table des départs. Approcher un poste pour afficher la vraie touche d’interaction. Les trois mannequins du dernier wagon affichent les dégâts des frappes sans infliger de blessures ni compter dans les statistiques.
 
-L’expédition actuelle enchaîne **la station de pompage et la halle des turbines**. Vider chaque salle pour ouvrir la sortie ; le passage est au bout de la carte. Le bilan affiche les salles, éliminations et dégâts par joueur. Une salle sécurisée rapporte une pièce d’atelier, et terminer l’expédition en rapporte une de plus. Le profil local conserve le solde, les déblocages et l’équipement dans un SaveGame Unreal.
+L’expédition actuelle traverse **les dix salles des Faubourgs noyés**, du quai d’évacuation à la station de pompage. L’Éclusier garde la cinquième salle et le Gardien de la station la dixième. Vider chaque salle pour ouvrir la sortie ; le passage est au bout de la carte. Le bilan affiche les salles, éliminations et dégâts par joueur. Une salle sécurisée rapporte une pièce d’atelier, et terminer l’expédition en rapporte une de plus. Le profil local conserve le solde, les déblocages et l’équipement dans un SaveGame Unreal.
 
-Le conducteur a un sabre et peut débloquer le marteau à piston. L’Éclaireur, plus rapide et moins robuste, utilise une variante teintée du même modèle avec une rapière ou deux lames courtes. Les passifs Constitution (+20 PV) et Mobilité (+15 % de vitesse, après Constitution) se débloquent au poste dédié. Les portraits, la santé et l’esquive du groupe apparaissent dans le HUD ; les équipiers sont en plus petit au-dessus du joueur local.
+Le déplacement et les changements de direction sont rapides. Une frappe avance légèrement le personnage ; une commande saisie juste avant la fin de la frappe précédente est gardée pendant 0,20 seconde. Le sabre alterne deux coupes. L’esquive est une roulade au sol, possible après le contact du coup. Les automates ordinaires reculent et interrompent leur frappe lorsqu’ils sont touchés ; les boss gardent leurs attaques annoncées. Les coups ne traversent pas les obstacles.
+
+Le conducteur a un sabre et peut débloquer le marteau à piston. L’Éclaireuse, plus rapide et moins robuste, possède son propre modèle Meshy (veste bleu pétrole, foulard ocre), un rig `ue5_mannequin` avec doigts, un matériau PBR et ses animations retargetées par Unreal. Elle utilise une rapière ou deux lames courtes. La provenance et les paramètres sont dans `SourceArt/Characters/Scout/PROVENANCE.md`. Les passifs Constitution (+20 PV) et Mobilité (+15 % de vitesse, après Constitution) se débloquent au poste dédié. Les portraits, la santé et l’esquive du groupe apparaissent dans le HUD ; les équipiers sont en plus petit au-dessus du joueur local.
+
+Le Conducteur utilise maintenant le rig Meshy `ue5_mannequin` de `Content/Characters/ConductorUE5`, avec ses animations directement générées sur ce squelette : repos, locomotion, attaques, roulade et réactions. L’import corrige les axes du pack d’actions et adapte le bras droit au port de l’arme pendant la course. L’option doigts a été demandée, mais les mains sculptées en poings n’ont produit qu’une articulation partielle ; ce n’est pas le squelette Manny complet. Voir [la provenance et les limites du rig](SourceArt/Characters/Conductor/UE5Rework/PROVENANCE.md).
+
+Le repos de l’Éclaireuse est reconstruit sur son squelette avec deux appuis fixes, une légère flexion des genoux et une respiration discrète. `Scripts/build_scout_idle.py` produit cette boucle et `Scripts/validate_scout_idle.py` vérifie les deux pieds, les genoux et la continuité de l’animation. La commande de développement `Train.ScoutReview` avec `-TrainScoutReview` permet de comparer les poses et les retours au repos dans le wagon.
 
 - Déplacement : ZQSD (AZERTY par défaut) ou WASD (QWERTY), flèches ou stick gauche.
 - Interaction : E ou A sur manette ; frappe légère : J, clic gauche ou X ; frappe lourde : K, clic droit ou Y ; esquive : Espace ou B.
 - Pause : Échap ou bouton Menu. En Play-in-Editor, **Maj+Échap** arrête l’aperçu. Seul l’hôte met la simulation en pause.
+
+## Salle pilote en blockout
+
+Lancer `./Scripts/play-quai-blockout.sh` pour tester la nouvelle composition du Quai des évacués : débarquement, cour à deux contournements, passage de service et poste de signalisation. Cette carte indépendante utilise des volumes simples, trois patrouilleurs et les déplacements/combat du jeu. Après élimination des adversaires, la borne verte mène à la salle 2 existante. Le lancement utilise un profil de réglages séparé, avec la résolution native par défaut.
+
+Le [parcours proposé des dix salles](Design/Faubourgs/PARCOURS.md), les deux références ImageGen et le plan coté servent à valider la composition avant les modèles de décor. `Scripts/build_quai_blockout.py` reconstruit uniquement `/Game/Maps/Blockout/QuaiBlockout`. Les dix cartes de l'expédition conservent leur génération actuelle.
+
+## Éclairage
+
+Les lanternes du wagon utilisent chacune une lumière ponctuelle mobile placée dans le luminaire, avec atténuation physique et ombres dynamiques. Le personnage, les armes, les meubles et les cloisons occultent ces sources. L’éclairage ambiant reste faible ; le bloom est réduit pour conserver les détails près des lampes. Les Faubourgs et la Fonderie utilisent les mêmes règles, avec une lumière extérieure froide et des sources locales chaudes.
+
+`Scripts/lighting.py` centralise ces réglages. `Scripts/rebuild_lighting.py`, exécuté avec le commandlet Python d’Unreal, met à jour les douze cartes sans reconstruire leur géométrie ni leur navigation ; les cartes précédentes sont conservées dans `Saved/Checkpoints/Lighting`. Les scripts de construction réappliquent aussi ces réglages. Les intensités sont en lumens et les couleurs utilisent des arguments nommés : l’ordre positionnel du type Python `Color` est B, G, R, A.
+
+Pour comparer les contributions réelles dans la vue de jeu : `./Scripts/play.sh /Game/Maps/Wagon -TrainLocal -TrainLightingPreview -ExecCmds=Train.LightingPreview`. Cet outil de développement capture une pose fixe avec l’éclairage complet, les lumières locales coupées, puis leurs ombres coupées, et ferme le jeu. Les images sont dans `Saved/LightingReview`. Les options `-TrainLightX=1550 -TrainLightY=30 -TrainLightLabel=entrainement` permettent de changer le point de contrôle. Les réglages graphiques d’ombres du joueur restent applicables.
+
+## Salles et rencontres procédurales
+
+Chaque nouvelle expédition reçoit une graine aléatoire. Le plugin **PCG d’Epic** place les modules de mobilier avec ses nœuds natifs Create Points et Spawn Actor ; les règles du jeu réservent un trajet entre l’entrée et la sortie, les abords de l’arrivée et les arènes des boss. Les quais, les ponts et les repères narratifs sont conservés. Caisses, étals, vannes et équipements sont choisis selon la salle, puis leurs positions et orientations changent à chaque partie.
+
+La génération tourne sur l’hôte. Les modules sont des acteurs répliqués par Unreal, avec leurs collisions ; Recast recalcule les zones bloquées grâce aux modificateurs dynamiques. Les ennemis sont placés ensuite sur des positions accessibles, sans chevauchement, à plus de treize mètres de l’arrivée. Le groupe attend brièvement la fin de cette préparation avant de pouvoir se déplacer. L’hôte décide des types et positions ; les invités reçoivent les mêmes acteurs.
+
+Le budget de menace augmente à chaque salle : **8, 11, 14, 17, 21, 25, 29, 33, 37, 43**. La composition varie à budget égal. Les coûts internes sont 1 pour un coureur, 2 pour une patrouille, 3 pour un tireur, 4 pour une sentinelle, 10 pour l’Éclusier et 16 pour le Gardien. Les sentinelles arrivent à partir de la salle 3, les tireurs à partir de la salle 4. En coop, chaque équipier supplémentaire ajoute `3 + salle / 3` points, avec division entière. L’effectif est fixé au départ du wagon pour toute l’expédition. Les points de vie et dégâts des types restent fixes, en solo comme en coop. Ce budget est une règle de composition ; l’équilibrage ressenti doit continuer à être testé en jouant.
+
+Pour reproduire un tirage en développement : `./Scripts/play.sh /Game/Maps/Pompage -TrainLocal -TrainSeed=101`. Relancer avec une autre graine change le placement et les rencontres. Sans cet argument, chaque départ du wagon renouvelle la graine.
+
+Les tests `LeDernierTrain.Generation.EncounterBudgets` et `LeDernierTrain.Generation.RoomSeeds` vérifient les budgets, les introductions de rôles, les boss, la reproductibilité, la variation entre graines, les statistiques constantes et la navigation après génération. `LeDernierTrain.Network.FourPlayers` compare aussi les modules et leurs collisions entre hôte et invité.
 
 ## Réglages
 
 Accessibles depuis le menu principal et la pause, enregistrés dans `Saved/Config/LinuxEditor/GameUserSettings.ini` en développement (les versions distribuées utiliseront leur dossier utilisateur Unreal).
 
 - Audio : volumes général, musique et effets. Les ambiances du dépôt et du wagon et le son de frappe sont importés depuis `SourceArt/Audio` ; les volumes pilotent des Sound Classes.
-- Graphismes : plein écran, résolutions du format de l’écran, VSync, compteur d’IPS, limite d’IPS par paliers (automatique, 30 à 240, sans limite), qualité globale et réglages des ombres, textures, effets, anticrénelage, post-traitement et distance d’affichage.
+- Graphismes : résolution native automatique de l’écran choisi et plein écran sans bordure par défaut ; choix manuel conservé, résolutions du format de l’écran, VSync, compteur d’IPS, limite d’IPS par paliers (automatique, 30 à 240, sans limite), qualité globale et réglages des ombres, textures, effets, anticrénelage, post-traitement et distance d’affichage.
 - Général : français/anglais et disposition AZERTY/QWERTY.
 - Commandes : clavier/manette, réattribution des actions du prototype et du changement d’onglet, rejet des doublons dans un même contexte, touches réservées, réinitialisation, activation des vibrations.
 
+La résolution du rendu 3D est indépendante de celle de l’écran : « Automatique (Unreal) » conserve la reconstruction temporelle du moteur, 100 % rend chaque pixel de la scène à la résolution choisie, et 83/75/67 % privilégient la fluidité. Le HUD reste à la résolution de sortie.
+
 Les graphismes suivent l’approche de [Lyra](https://dev.epicgames.com/documentation/unreal-engine/scalability-and-device-profiles-in-lyra-sample-game-for-unreal-engine) : une sous-classe locale de `UGameUserSettings` et les groupes de qualité natifs d’Unreal. Lyra n’est pas une dépendance. Les menus sont limités à 30 IPS ; la limite choisie s’applique au jeu. « Automatique » utilise la fréquence native remontée par le RHI, avec repli à 60 ; cela ne détecte pas l’activation de FreeSync/G-Sync. La VSync peut limiter les IPS même avec « Sans limite ».
+
+Les lancements de test avec `-TrainProfile=nom` isolent aussi `GameUserSettings.ini` dans `Saved/TestSettings/nom`, pour ne pas écraser la résolution et les commandes du joueur.
 
 Sous Wayland, le compositeur gère le placement des fenêtres : le sélecteur d’écran est désactivé. Sur les plateformes permettant le placement, il déplace la fenêtre sur l’écran choisi. Pas de sélecteur de carte graphique.
 
@@ -117,11 +153,14 @@ Il vérifie l’App ID 480, l’identité et le pseudo en jeu, la recherche, la 
 `SourceArt/` conserve les GLB Layer, les scènes Blender éditables, les FBX, les textures, les portraits et les licences. Les modèles et les animations d’Unreal sont dans `Content/Characters/`, les armes dans `Content/Weapons/`, et les meubles du wagon et les machines dans `Content/Props/`. Voir [la provenance des assets](SourceArt/README.md).
 
 - `Scripts/prepare_models.py` et `Scripts/build_props.py` s’exécutent en arrière-plan dans Blender. Les meshes articulés sont normalisés en centimètres, avec un os racine au sol ; les modèles des armes sont exportés avec l’origine sur la poignée.
-- Dans `UnrealEditor-Cmd`, `-run=pythonscript -script=Scripts/import_characters.py` importe les FBX et retargete les clips avec IK Rig et IK Retargeter. Ajouter `-TrainConductorOnly`, `-TrainDodgeOnly` ou `-TrainAutomatonOnly` pour ne recalculer que les séquences concernées. Les sources du conducteur sont orientées dans le même axe que son squelette avant transfert. L’esquive combine les poses de décollage et de réception avec un saut court piloté par le mouvement natif. La pose de course place l’arme en retrait ; les transitions et les montages restent évalués par Unreal. Chaque poignée est alignée sur la main à partir de son propre point de prise.
+- `Scripts/rebuild_faubourgs.py` reconstruit les dix cartes et leur navigation depuis les modèles GLB de `SourceArt/Props/Faubourgs/`. `Scripts/import_faubourgs_enemies.py` importe les squelettes Meshy et retargete les animations d’automate. Lancer ces scripts avec `UnrealEditor-Cmd -run=pythonscript -script=...`.
+- `Scripts/import_characters.py` prépare les personnages de base avec IK Rig et IK Retargeter. Pour les animations actuelles, exécuter ensuite `Scripts/import_combat_motion.py` : course, marche, deux coupes, attaques lourdes, roulade et réactions Meshy. Le script recale les contacts sur les délais du gameplay et fixe les appuis sans déplacer la capsule ; Character Movement et GAS pilotent le déplacement. Avant de réimporter les gardiens, lancer `Scripts/prepare_faubourgs_rigs.py` avec Blender puis importer avec `-TrainReimport` pour normaliser l’échelle et actualiser la pose de référence. Chaque poignée est alignée sur la main à partir de son propre point de prise.
+- Pour le **Conducteur actuel**, utiliser `Scripts/prepare_conductor_ue5.py` dans Blender puis `Scripts/import_conductor_ue5.py` dans Unreal. Ce chemin importe directement les clips sur le nouveau squelette ; le script historique ci-dessus ne met à jour que l’ancien Conducteur et les ennemis. Vérifier avec `Scripts/validate_conductor_ue5.py` et `Scripts/validate_combat_assets.py`. La commande de développement `Train.ConductorReview`, avec le drapeau `-TrainConductorReview`, enregistre une séquence de contrôle visuel dans `Saved/ConductorUE5Review`.
+- `Scripts/art_direction.py` partage les matériaux et l’éclairage entre le wagon et les Faubourgs. `Scripts/rebuild_world.py`, puis `Scripts/rebuild_faubourgs.py`, reconstruisent ces décors. L’établi Meshy est importé automatiquement depuis son GLB. Pour recalculer les matériaux existants, ajouter `-TrainRefreshMaterials`. `Scripts/build_combat_effects.py` crée les meshes de traînées et d’impacts dans Blender ; `Scripts/import_combat_effects.py` les importe avec les matériaux d’effets et les annonces de frappe.
 - `Scripts/rebuild_prototype.py` applique les matériaux, reconstruit les cartes éditables et importe l’audio. Il conserve les anciennes cartes dans `Saved/Checkpoints/Maps`. Les sols répétés sont instanciés et les zones de navigation sont calculées par Recast.
 - `GameplayCharacterLOD` fournit au conducteur et à l’automate un LOD à environ 15 000 triangles pour la caméra de jeu. La texture `/Game/Art/Steel` est redimensionnée à 1024 × 1024 lors de la préparation des données de rendu, avec des mipmaps et la compression standard pour les textures de décor.
 
-`LeDernierTrain.Gameplay.WagonAndRun` vérifie les postes, les achats et passifs, les prises d’arme, les frappes sur mannequin, la poursuite, les deux salles, les statistiques, la santé conservée entre salles et la récompense. Le profil utilisé par ce test est restauré à la fin. `TRAIN_COOP_SMOKE=1 ./Scripts/local-coop.sh 2` lance deux processus en développement, vérifie la connexion et les actions, capture leurs HUD puis quitte. Les rapports se trouvent dans `Saved/LocalCoopSmoke/`.
+`LeDernierTrain.Gameplay.WagonAndRun` vérifie les postes, les achats et passifs, les prises d’arme, les frappes sur mannequin, la poursuite, le parcours des dix salles et les deux boss, les statistiques, la santé conservée entre salles et la récompense. Le profil utilisé par ce test est restauré à la fin. `TRAIN_COOP_SMOKE=1 ./Scripts/local-coop.sh 2` lance deux processus en développement, vérifie la connexion et les actions, puis le passage dans une salle procédurale avec comparaison de la graine, des modules et des ennemis entre hôte et invité. Il capture leurs HUD puis quitte. Les rapports se trouvent dans `Saved/LocalCoopSmoke/`.
 
 Pour capturer plusieurs poses de course, de frappe légère et lourde avec chaque arme, ainsi que l’esquive et les dégâts en jeu, avec un profil isolé :
 
@@ -130,3 +169,11 @@ Pour capturer plusieurs poses de course, de frappe légère et lourde avec chaqu
 ```
 
 Les images sont enregistrées dans `Saved/PrototypeCaptures/`.
+
+`Scripts/validate_combat_assets.py`, lancé dans le commandlet Python, vérifie aussi les assets importés : pieds au sol dans les poses de référence et les frappes, contact dirigé vers la cible, normal map et texture metallic/roughness reliées au matériau de l’établi. Ce contrôle complète les tests de jeu ; il ne remplace pas la revue visuelle des déformations et des transitions.
+
+## Mesures locales de performance
+
+`./Scripts/play.sh /Game/Maps/Wagon -TrainLocal -TrainProfile=benchmark -TrainBenchmark -TrainBenchmarkScout -TrainBenchmarkLabel=review -ExecCmds=Train.Benchmark` exécute trois vues réelles : wagon, salle 6, salle 10. Chaque vue chauffe six secondes puis mesure douze secondes, sans limite d’IPS ni VSync. Les combats continuent ; seul le joueur de test est invulnérable. Les salles utilisent un budget de rencontre pour quatre joueurs dans un seul processus ; ce n’est pas une mesure de quatre clients rendus simultanément.
+
+Le CSV est dans `Saved/Benchmarks`. `-TrainNativeRendering` impose un rendu 3D à 100 % pour cette mesure, `-TrainProfileGPU` ajoute le profilage GPU natif, et `-windowed -ResX=1600 -ResY=900` permet de reproduire la résolution de référence. Sans ces dimensions, le lancement conserve la résolution native automatique. Les profils de test isolent les réglages du joueur.
