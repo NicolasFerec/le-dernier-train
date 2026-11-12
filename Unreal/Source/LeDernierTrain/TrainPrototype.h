@@ -43,6 +43,14 @@ private:
     void Refresh();
     void ChangeTab(int32 Delta);
     void FocusFirst();
+    void PlayIntro();
+    void CloseIntro();
+    UFUNCTION() void FinishIntro();
+    UFUNCTION() void IntroOpenFailed(FString FailedUrl);
+    UPROPERTY(Transient) TObjectPtr<class UMediaPlayer> IntroPlayer;
+    UPROPERTY(Transient) TObjectPtr<class UMediaTexture> IntroTexture;
+    UPROPERTY(Transient) TObjectPtr<class UMediaSoundComponent> IntroSound;
+    FSlateBrush IntroBrush;
     UPROPERTY(Transient) TObjectPtr<UTexture2D> Backdrop;
     TSharedPtr<SBox> RootHost;
     TWeakPtr<SWidget> FirstFocus;
@@ -89,6 +97,8 @@ public:
     void SendLoadout();
     float MeleeDuration(bool Heavy) const;
     bool CanDodge() const;
+    void FaceAttackTarget();
+    UFUNCTION(Client,Unreliable) void ConfirmImpact(bool Heavy);
     void PredictMelee(bool Heavy);
     void CancelPredictedMelee();
     void FinishPredictedMelee() { PredictedMelee=false; }
@@ -122,6 +132,7 @@ private:
     UPROPERTY()
     TObjectPtr<UStaticMeshComponent> HeldWeapon;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> OffhandWeapon;
+    UPROPERTY() TObjectPtr<class USkeletalMesh> ScoutModel;
     UPROPERTY() TObjectPtr<class USpringArmComponent> SpringArm;
     UPROPERTY()
     TObjectPtr<UTrainStatus> Message;
@@ -137,6 +148,12 @@ private:
     UPROPERTY() TObjectPtr<UAbilitySystemComponent> Abilities;
     float AttackCooldown = 0;
     float SwingTime = 0;
+    int32 BufferedAttack = -1;
+    float InputBufferTime = 0;
+    int32 ComboIndex = 0;
+    double LastSwingAt = -10;
+    float ImpactTime = 0;
+    void QueueAttack(bool Heavy);
     FRotator SwingDirection;
     bool PredictedMelee=false;
     FTimerHandle StrikeTimer;

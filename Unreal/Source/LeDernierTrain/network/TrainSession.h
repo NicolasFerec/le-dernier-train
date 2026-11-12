@@ -27,6 +27,8 @@ public:
     bool IsLocalDev() const;
     FSimpleMulticastDelegate Changed;
     int32 RoomsCleared = 0;
+    int32 ExpeditionSeed = 0;
+    int32 ExpeditionCrew = 0;
     FText Status;
     FString Mode = TEXT("Solo");
     TArray<FOnlineSessionSearchResult> Games;

@@ -1,0 +1,28 @@
+{
+  "rig": {
+    "resource": "rigging",
+    "task_id": "01a1cf4e-9874-775f-8b62-33306e1ae408",
+    "skeleton_template": "ue5_mannequin",
+    "include_fingers": true,
+    "height_meters": 1.8,
+    "consumed_credits": 5,
+    "input": "Submitted/conductor-rig-input.glb"
+  },
+  "animations": {
+    "resource": "animate",
+    "task_id": "01a1cf4f-c6cc-7151-80f8-3845fe455d38",
+    "rig_task_id": "01a1cf4e-9874-775f-8b62-33306e1ae408",
+    "action_ids": [
+      11,
+      219,
+      97,
+      242,
+      128,
+      158,
+      178,
+      8
+    ],
+    "consumed_credits": 24
+  },
+  "balance_after": 794
+}

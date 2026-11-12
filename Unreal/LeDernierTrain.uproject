@@ -2,6 +2,11 @@
   "FileVersion": 3,
   "EngineAssociation": "5.8",
   "Plugins": [
+    { "Name": "PCG", "Enabled": true },
+    {
+      "Name": "WebMMedia",
+      "Enabled": true
+    },
     {
       "Name": "AndroidFileServer",
       "Enabled": false
@@ -74,7 +79,7 @@
     {
       "Name": "LeDernierTrain",
       "Type": "Runtime",
-      "LoadingPhase": "PreDefault"
+      "LoadingPhase": "Default"
     }
   ]
 }

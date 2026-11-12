@@ -1,0 +1,90 @@
+[
+  {
+    "action_id": 11,
+    "name": "Idle 1",
+    "key": "Idle_02",
+    "category": "DailyActions",
+    "sub_category": "Idle",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_02.gif"
+  },
+  {
+    "action_id": 12,
+    "name": "Idle 2",
+    "key": "Idle_03",
+    "category": "DailyActions",
+    "sub_category": "Idle",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_03.gif"
+  },
+  {
+    "action_id": 243,
+    "name": "Idle 3",
+    "key": "Idle_3",
+    "category": "DailyActions",
+    "sub_category": "Idle",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_3.gif"
+  },
+  {
+    "action_id": 244,
+    "name": "Idle 4",
+    "key": "Idle_4",
+    "category": "DailyActions",
+    "sub_category": "Idle",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Idle_4.gif"
+  },
+  {
+    "action_id": 219,
+    "name": "Right-hand Sword Slash",
+    "key": "Right_Hand_Sword_Slash",
+    "category": "Fighting",
+    "sub_category": "Punching",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Right_Hand_Sword_Slash.gif"
+  },
+  {
+    "action_id": 4,
+    "name": "Attack",
+    "key": "Attack",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Attack.gif"
+  },
+  {
+    "action_id": 89,
+    "name": "Combat Idel",
+    "key": "Combat_Stance",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Combat_Stance.gif"
+  },
+  {
+    "action_id": 97,
+    "name": "Left Slash",
+    "key": "Left_Slash",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Left_Slash.gif"
+  },
+  {
+    "action_id": 128,
+    "name": "Heavy Hammer Swing",
+    "key": "Heavy_Hammer_Swing",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Heavy_Hammer_Swing.gif"
+  },
+  {
+    "action_id": 237,
+    "name": "Charged Axe Chop",
+    "key": "Charged_Axe_Chop",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Charged_Axe_Chop.gif"
+  },
+  {
+    "action_id": 240,
+    "name": "Thrust Slash",
+    "key": "Thrust_Slash",
+    "category": "Fighting",
+    "sub_category": "AttackingwithWeapon",
+    "preview_url": "https://cdn.meshy.ai/webapp-assets/feature-demo/animation/preview/biped/Thrust_Slash.gif"
+  }
+]

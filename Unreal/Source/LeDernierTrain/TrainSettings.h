@@ -11,9 +11,12 @@ class UTrainSettings : public UGameUserSettings
 public:
     static UTrainSettings* Get();
     virtual void SetToDefaults() override;
+    virtual void LoadSettings(bool ForceReload = false) override;
     virtual void SaveSettings() override;
+    FIntPoint NativeResolution() const;
     void SetLanguage(const FString& NewLanguage, UWorld* World);
     void ApplyRuntime(UWorld* World, bool bMenu);
+    void ApplyInitialDisplay(UWorld* World);
     float GetGameLimit() const;
     FKey Key(FName Action, bool bGamepad) const;
     bool Rebind(FName Action, bool bGamepad, FKey NewKey);
@@ -28,9 +31,11 @@ public:
     UPROPERTY(Config) FString Language = TEXT("fr");
     UPROPERTY(Config) int32 KeyboardLayout = 1;
     UPROPERTY(Config) int32 Monitor = -1;
+    UPROPERTY(Config) bool UseNativeResolution = true;
     UPROPERTY(Config) int32 GameFPS = -1;
     UPROPERTY(Config) TMap<FString, FKey> Bindings;
 private:
+    bool DisplayApplied=false;
     void LocalizeSigns(UWorld* World) const;
     // Keep the native volume buses alive across world travel and garbage collection.
     UPROPERTY(Transient) TObjectPtr<class USoundMix> VolumeMix;

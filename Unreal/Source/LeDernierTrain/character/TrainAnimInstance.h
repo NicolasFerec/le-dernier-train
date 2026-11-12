@@ -31,6 +31,7 @@ public:
     UPROPERTY(Transient) TObjectPtr<UAnimSequence> Run;
     UPROPERTY(Transient) TObjectPtr<UAnimSequence> Death;
     UPROPERTY(Transient) TObjectPtr<UAnimSequence> Dodge;
+    UPROPERTY(Transient) TMap<FName,TObjectPtr<UAnimSequence>> ActionClips;
     virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override { return new FTrainAnimProxy(this); }
     virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* Proxy) override { delete static_cast<FTrainAnimProxy*>(Proxy); }
     virtual void NativeInitializeAnimation() override;

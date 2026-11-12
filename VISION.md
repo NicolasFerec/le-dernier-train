@@ -15,6 +15,10 @@ La cible initiale est de **trois mondes de dix salles chacun**. Une partie comme
 
 Il y a **trois niveaux de difficulté**. Le premier est disponible dès le départ. Pour débloquer le suivant, il faut avoir terminé **les trois mondes** dans la difficulté précédente. Le monde et la difficulté se choisissent au même moment avant de lancer la partie.
 
+À chaque expédition, l’agencement des obstacles et les rencontres varient. Les repères narratifs de chaque lieu, les entrées et les sorties restent identifiables ; la génération préserve les passages et l’espace de combat. Les ennemis apparaissent sur des zones praticables, à distance de l’arrivée du groupe.
+
+La difficulté monte d’une salle à l’autre par le nombre, les rôles et la composition des adversaires. Un automate d’un type donné garde les mêmes points de vie, dégâts et capacités dans toutes les salles. La coopération ajoute des adversaires au budget des rencontres, sans augmenter leurs points de vie. Les boss restent des types distincts, avec leurs propres statistiques et comportements.
+
 ## 3. Progression permanente
 
 La progression entre les parties doit changer sensiblement ce qu’un joueur peut faire et la façon dont il joue. Revenir au salon doit permettre de faire un choix qui compte pour la prochaine partie, qu’il s’agisse de changer de style de combat ou de développer un personnage favori.
@@ -73,4 +77,6 @@ Après une mission, le train récupère l’équipe à un point de rendez-vous. 
 2. **La Fonderie des géants.** Une usine continue de fabriquer des machines de guerre pour une armée disparue. L’équipage détourne son énergie pour permettre au train de franchir les montagnes.
 3. **La Gare du bout du monde.** Tous les trains disparus y arrivent encore. Quelqu’un y tient le registre des passagers et attend le retour du Dernier Train.
 
-L’origine de l’abandon du pays, le passé des membres de l’équipage et l’identité de la personne qui tient le registre restent à définir.
+À la fin de la guerre, l’armée a ordonné aux automates d’ouvrir les barrages, de fermer les gares et d’empêcher quiconque de rouvrir la voie. Le train blindé a emporté les derniers survivants avant la fermeture de la ligne. Les automates défendent encore les installations condamnées. Au terminus, un automate de gare tient le registre des convois vides et attend l’arrivée du Dernier Train. Le passé des membres de l’équipage reste à définir.
+
+Dans les Faubourgs noyés, l’équipage suit l’ancienne voie d’évacuation depuis le quai et la rue des vannes jusqu’à l’entrepôt, puis traverse le canal et affronte l’Éclusier. Il remonte ensuite le réseau d’eau à travers le marché, les collecteurs et la salle des chaudières, passe par le poste de répartition et affronte le gardien de la station. Une fois la station sécurisée, l’équipage remet les pompes en marche pour dégager la voie.

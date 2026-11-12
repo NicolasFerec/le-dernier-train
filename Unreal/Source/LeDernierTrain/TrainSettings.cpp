@@ -9,6 +9,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "RHI.h"
+#include "GenericPlatform/GenericApplication.h"
 #include "Sound/SoundClass.h"
 #include "Sound/SoundMix.h"
 
@@ -55,6 +56,9 @@ void UTrainSettings::LocalizeSigns(UWorld* World) const
         {TEXT("TrainSign.Arsenal"), TEXT("ARSENAL"), TEXT("ARMORY")},
         {TEXT("TrainSign.Passives"), TEXT("ATELIER DES PASSIFS"), TEXT("PASSIVE SKILLS")},
         {TEXT("TrainSign.Practice"), TEXT("ENTRAÎNEMENT"), TEXT("TRAINING")},
+        {TEXT("TrainSign.Evacuation"), TEXT("QUAI DES ÉVACUÉS"), TEXT("EVACUATION PLATFORM")},
+        {TEXT("TrainSign.FloodOrder"), TEXT("ORDRE DE GUERRE — MAINTENIR LES QUARTIERS BAS SOUS L’EAU"), TEXT("WAR ORDER — KEEP THE LOWER DISTRICTS FLOODED")},
+        {TEXT("TrainSign.Lock"), TEXT("ÉCLUSE DU FAUBOURG"), TEXT("DISTRICT LOCK")},
         {TEXT("TrainSign.Pumping"), TEXT("STATION DE POMPAGE"), TEXT("PUMP STATION")},
         {TEXT("TrainSign.Turbines"), TEXT("HALLE DES TURBINES"), TEXT("TURBINE HALL")},
     };
@@ -78,8 +82,31 @@ void UTrainSettings::SetToDefaults()
     Language = TEXT("fr");
     KeyboardLayout = 1;
     Monitor = -1;
+    UseNativeResolution = true;
+    SetFullscreenMode(EWindowMode::WindowedFullscreen);
     GameFPS = -1;
     Bindings.Empty();
+}
+
+FIntPoint UTrainSettings::NativeResolution() const
+{
+    FDisplayMetrics Metrics;
+    FDisplayMetrics::RebuildDisplayMetrics(Metrics);
+    if (Metrics.MonitorInfo.IsValidIndex(Monitor))
+        return FIntPoint(Metrics.MonitorInfo[Monitor].NativeWidth,Metrics.MonitorInfo[Monitor].NativeHeight);
+    for (const auto& Display:Metrics.MonitorInfo)
+        if (Display.bIsPrimary) return FIntPoint(Display.NativeWidth,Display.NativeHeight);
+    return GetDesktopResolution();
+}
+
+void UTrainSettings::LoadSettings(bool ForceReload)
+{
+    Super::LoadSettings(ForceReload);
+    if (UseNativeResolution)
+    {
+        const FIntPoint Size=NativeResolution();
+        if (Size.X>0 && Size.Y>0) SetScreenResolution(Size);
+    }
 }
 
 float UTrainSettings::GetGameLimit() const
@@ -96,6 +123,16 @@ float UTrainSettings::GetGameLimit() const
                 Refresh = FMath::Max(Refresh, static_cast<float>(Mode.RefreshRate));
     }
     return Refresh;
+}
+
+void UTrainSettings::ApplyInitialDisplay(UWorld* World)
+{
+    if (DisplayApplied || !World || World->WorldType!=EWorldType::Game) return;
+    // Wait until the game window is shown. Linux's startup Restore can otherwise
+    // leave a maximized work-area window even though settings report fullscreen.
+    GSystemResolution.bForceRefresh=true;
+    ApplyResolutionSettings(true);
+    DisplayApplied=true;
 }
 
 void UTrainSettings::ApplyRuntime(UWorld* World, bool bMenu)

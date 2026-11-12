@@ -94,6 +94,19 @@ bool FCheckTrainKeyboardLayouts::Update()
     TestTrue(TEXT("Duplicate action binding is rejected"), !Settings->Rebind(TEXT("Interact"), false, EKeys::L));
     TestTrue(TEXT("Pause key is reserved"), !Settings->Rebind(TEXT("Attack"), false, EKeys::Escape));
     TestTrue(TEXT("Gamepad slot rejects keyboard input"), !Settings->Rebind(TEXT("Attack"), true, EKeys::M));
+    const bool SavedNative=Settings->UseNativeResolution;
+    const FIntPoint SavedResolution=Settings->GetScreenResolution();
+    Settings->UseNativeResolution=false;
+    Settings->SetScreenResolution(FIntPoint(1280,720));
+    Settings->SaveSettings();Settings->LoadSettings(true);
+    TestTrue(TEXT("An explicit resolution survives reloading"),Settings->GetScreenResolution()==FIntPoint(1280,720));
+    Settings->UseNativeResolution=true;
+    Settings->SaveSettings();Settings->LoadSettings(true);
+    const FIntPoint Native=Settings->NativeResolution();
+    if (Native.X>0 && Native.Y>0)
+        TestTrue(TEXT("Automatic resolution follows the selected monitor"),Settings->GetScreenResolution()==Native);
+    Settings->UseNativeResolution=SavedNative;
+    Settings->SetScreenResolution(SavedResolution);
     Settings->KeyboardLayout = SavedLayout;
     Settings->Bindings = SavedBindings;
     Settings->SaveSettings();

@@ -1,0 +1,43 @@
+[
+  {
+    "source": "Rig/rigged_character.glb",
+    "height_before_cm": 180.00000847793842,
+    "scale": 99.99999529003443,
+    "bones": 43,
+    "animations": []
+  },
+  {
+    "source": "Rig/Walk.glb",
+    "height_before_cm": 180.00000847793842,
+    "scale": 99.99999529003443,
+    "bones": 43,
+    "animations": [
+      "retarget_clip"
+    ]
+  },
+  {
+    "source": "Rig/Run.glb",
+    "height_before_cm": 180.00000847793842,
+    "scale": 99.99999529003443,
+    "bones": 43,
+    "animations": [
+      "retarget_clip"
+    ]
+  },
+  {
+    "source": "Actions.glb",
+    "height_before_cm": 179.99998435738078,
+    "scale": 100.00000869034477,
+    "bones": 43,
+    "animations": [
+      "Charged_Slash",
+      "Dead",
+      "Heavy_Hammer_Swing",
+      "Hit_Reaction",
+      "Idle_02",
+      "Left_Slash",
+      "Right_Hand_Sword_Slash",
+      "Roll_Dodge"
+    ]
+  }
+]

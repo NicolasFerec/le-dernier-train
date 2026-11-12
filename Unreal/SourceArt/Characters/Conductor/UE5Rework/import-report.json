@@ -1,0 +1,52 @@
+{
+  "Idle": {
+    "duration": 1.8666666746139526,
+    "keys": 57,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Run": {
+    "duration": 0.6333333253860474,
+    "keys": 20,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Walk": {
+    "duration": 1.0333333015441895,
+    "keys": 32,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Light": {
+    "duration": 1.5,
+    "keys": 46,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "LightReturn": {
+    "duration": 3.1666667461395264,
+    "keys": 96,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Heavy": {
+    "duration": 2.200000047683716,
+    "keys": 67,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "HammerHeavy": {
+    "duration": 1.8333333730697632,
+    "keys": 56,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Dodge": {
+    "duration": 1.8333333730697632,
+    "keys": 56,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Hit": {
+    "duration": 1.6333333253860474,
+    "keys": 50,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  },
+  "Death": {
+    "duration": 2.9666666984558105,
+    "keys": 90,
+    "skeleton": "/Game/Characters/ConductorUE5/SK_ConductorUE5_Skeleton.SK_ConductorUE5_Skeleton"
+  }
+}

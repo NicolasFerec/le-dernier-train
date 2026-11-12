@@ -1,0 +1,7 @@
+{
+  "source": "../conductor.glb",
+  "forward": "glTF +Z",
+  "height_m": 1.8,
+  "rotation_z_degrees": 0.00028253714392718714,
+  "source_faces": 100070
+}

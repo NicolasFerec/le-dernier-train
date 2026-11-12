@@ -55,6 +55,10 @@ public:
     UPROPERTY(Replicated) bool Victory = false;
     UPROPERTY(Replicated) FVector DeparturePoint = FVector::ZeroVector;
     UPROPERTY(Replicated) int32 RoomIndex=0;
+    UPROPERTY(Replicated) bool RoomReady=true;
+    UPROPERTY(Replicated) int32 RoomSeed=0;
+    UPROPERTY(Replicated) int32 EncounterThreat=0;
+    UPROPERTY(Replicated) int32 LayoutProps=0;
 };
 
 UCLASS()
@@ -72,13 +76,21 @@ public:
     UFUNCTION(Client, Reliable) void ClientReward(int32 Points);
     void CombatText(FVector Point,float Damage,bool Hurt);
     FText Notice() const;
+    void StopMenuAudio();
 private:
     void SetupLocalWorld();
     FString ActiveMap;
+    TArray<TWeakObjectPtr<class UAudioComponent>> MenuAudio;
     FText NoticeText;
     double NoticeUntil = 0;
     UPROPERTY() TObjectPtr<class UTrainHUD> HUD;
     UPROPERTY() TObjectPtr<class UTrainMenu> Summary;
+};
+
+UENUM()
+enum class ETrainEnemyType : uint8
+{
+    Patrol, Runner, Sentry, Gunner, Lockkeeper, Guardian
 };
 
 UCLASS()
@@ -90,15 +102,28 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
     void Hit(class ATrainPawn* Attacker, float Damage);
+    void Configure(ETrainEnemyType NewType);
+    ETrainEnemyType GetEnemyType() const { return Type; }
+    FText DisplayName() const;
+    const TCHAR* AnimationFolder() const;
+    bool Runs() const { return Type == ETrainEnemyType::Runner; }
+    bool IsBoss() const;
     UPROPERTY(Replicated) float Health = 90;
-    UFUNCTION(NetMulticast,Unreliable) void MulticastAttack();
+    UPROPERTY(Replicated) float MaxHealth = 90;
+    UFUNCTION(NetMulticast, Reliable) void MulticastAttack(FVector Origin, FRotator Direction, float Range, float Width, float Windup);
     UFUNCTION(NetMulticast,Reliable) void MulticastHit(float Damage,bool Dead);
 private:
     UPROPERTY() TObjectPtr<class UWidgetComponent> HealthBar;
     float AttackCooldown = 0;
     float RepathAfter=0;
+    float StaggerTime=0;
     FTimerHandle HitTimer;
-    FRotator AttackDirection;
+    UFUNCTION() void ApplyAppearance();
+    UPROPERTY(ReplicatedUsing=ApplyAppearance) ETrainEnemyType Type = ETrainEnemyType::Patrol;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> AttackMarker;
+    FTimerHandle MarkerTimer;
+    FTimerHandle FlashTimer;
+    int32 AttackCount = 0;
 };
 
 UCLASS()
@@ -151,5 +176,7 @@ protected:
     virtual TSharedRef<SWidget> RebuildWidget() override;
 private:
     UPROPERTY() TObjectPtr<UTexture2D> Portrait;
+    UPROPERTY() TObjectPtr<UTexture2D> ScoutPortrait;
     FSlateBrush PortraitBrush;
+    FSlateBrush ScoutPortraitBrush;
 };

@@ -1,0 +1,12 @@
+[2026.11.12-10.23.36:549][593]LogTemp: Display: TRAIN_BLOCKOUT_WALK 1 grounded=1 location=V(X=-1116.48, Y=604.95, Z=92.15)
+[2026.11.12-10.23.37:500][650]LogTemp: Display: TRAIN_BLOCKOUT_WALK 2 grounded=1 location=V(X=-694.51, Y=419.56, Z=92.15)
+[2026.11.12-10.23.41:009][850]LogTemp: Display: TRAIN_BLOCKOUT_WALK 3 grounded=1 location=V(X=997.51, Y=643.07, Z=92.15)
+[2026.11.12-10.23.43:910][ 24]LogTemp: Display: TRAIN_BLOCKOUT_WALK 4 grounded=1 location=V(X=1327.46, Y=-704.80, Z=92.15)
+[2026.11.12-10.23.48:394][293]LogTemp: Display: TRAIN_BLOCKOUT_WALK 5 grounded=1 location=V(X=-751.51, Y=-652.13, Z=92.15)
+[2026.11.12-10.23.50:721][422]LogTemp: Display: TRAIN_BLOCKOUT_WALK 6 grounded=1 location=V(X=-942.14, Y=502.42, Z=92.15)
+[2026.11.12-10.23.55:239][693]LogTemp: Display: TRAIN_BLOCKOUT_WALK 7 grounded=1 location=V(X=1301.52, Y=451.11, Z=92.15)
+[2026.11.12-10.23.56:655][778]LogTemp: Display: TRAIN_BLOCKOUT_WALK 8 grounded=1 location=V(X=2000.44, Y=450.07, Z=92.15)
+[2026.11.12-10.23.57:558][822]LogTemp: Display: TRAIN_BLOCKOUT_WALK 9 grounded=1 location=V(X=2443.45, Y=450.01, Z=92.15)
+[2026.11.12-10.23.59:174][919]LogTemp: Display: TRAIN_BLOCKOUT_WALK 10 grounded=1 location=V(X=2590.42, Y=1201.06, Z=92.15)
+[2026.11.12-10.24.00:041][971]LogTemp: Display: TRAIN_BLOCKOUT_WALK 11 grounded=1 location=V(X=2792.46, Y=1525.74, Z=92.15)
+[2026.11.12-10.24.02:227][ 75]LogTemp: Display: TRAIN_BLOCKOUT_REVIEW_COMPLETE: native movement both routes, 4 starts, 3 reachable enemies, no PCG furniture, exit travel to room 2

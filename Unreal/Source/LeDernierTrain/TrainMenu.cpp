@@ -15,6 +15,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/Paths.h"
+#include "MediaPlayer.h"
+#include "MediaSoundComponent.h"
+#include "MediaTexture.h"
 #include "TimerManager.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
@@ -111,9 +114,84 @@ void UTrainMenu::Resume()
         Pawn->TogglePause();
 }
 
+void UTrainMenu::PlayIntro()
+{
+    auto* Session = GetGameInstance<UTrainSession>();
+    if (!Session || Session->IsBusy() || IntroPlayer)
+        return;
+
+    IntroPlayer = NewObject<UMediaPlayer>(this);
+    IntroPlayer->SetLooping(false);
+    IntroPlayer->OnEndReached.AddDynamic(this, &UTrainMenu::FinishIntro);
+    IntroPlayer->OnMediaOpenFailed.AddDynamic(this, &UTrainMenu::IntroOpenFailed);
+
+    IntroTexture = NewObject<UMediaTexture>(this);
+    IntroTexture->SetMediaPlayer(IntroPlayer);
+    IntroTexture->UpdateResource();
+    IntroBrush.SetResourceObject(IntroTexture);
+    IntroBrush.ImageSize = FVector2D(1920, 1080);
+
+    IntroSound = NewObject<UMediaSoundComponent>(GetOwningPlayer());
+    IntroSound->SetMediaPlayer(IntroPlayer);
+    IntroSound->RegisterComponent();
+    IntroSound->SetVolumeMultiplier(UTrainSettings::Get()->MasterVolume);
+
+    const FString Movie = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir() / TEXT("Movies/Intro.webm"));
+    if (!IntroPlayer->OpenFile(Movie))
+    {
+        FinishIntro();
+        return;
+    }
+
+    if (auto* Controller = Cast<ATrainPlayerController>(GetOwningPlayer()))
+        Controller->StopMenuAudio();
+    RootHost->SetContent(BuildContent());
+    FSlateApplication::Get().SetKeyboardFocus(TakeWidget(), EFocusCause::SetDirectly);
+    GetOwningPlayer()->SetShowMouseCursor(false);
+}
+
+void UTrainMenu::CloseIntro()
+{
+    if (!IntroPlayer)
+        return;
+    IntroPlayer->OnEndReached.RemoveDynamic(this, &UTrainMenu::FinishIntro);
+    IntroPlayer->OnMediaOpenFailed.RemoveDynamic(this, &UTrainMenu::IntroOpenFailed);
+    IntroPlayer->Close();
+    IntroSound->DestroyComponent();
+    IntroSound = nullptr;
+    IntroPlayer = nullptr;
+}
+
+void UTrainMenu::FinishIntro()
+{
+    if (!IntroPlayer)
+        return;
+    CloseIntro();
+    if (auto* Session = GetGameInstance<UTrainSession>())
+        Session->Solo();
+}
+
+void UTrainMenu::IntroOpenFailed(FString FailedUrl)
+{
+    FinishIntro();
+}
+
 TSharedRef<SWidget> UTrainMenu::BuildContent()
 {
     auto Overlay = SNew(SOverlay);
+    if (IntroPlayer)
+    {
+        static const FSlateColorBrush Black(FLinearColor::Black);
+        Overlay->AddSlot()[SNew(SImage).Image(&Black)];
+        Overlay->AddSlot()[SNew(SScaleBox).Stretch(EStretch::ScaleToFit)
+            .HAlign(HAlign_Center).VAlign(VAlign_Center)
+            [SNew(SOverlay)
+                + SOverlay::Slot()[SNew(SImage).Image(&IntroBrush)]
+                + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(28)
+                    [SNew(SBorder).BorderImage(&Black).Padding(FMargin(14, 8))
+                        [Label(T(TEXT("Échap · Passer"), TEXT("Esc · Skip")), 23)]]]];
+        return Overlay;
+    }
     if (!PauseMode && !SessionMode && !SummaryMode && Station<0)
         Overlay->AddSlot()[SNew(SScaleBox).Stretch(EStretch::ScaleToFill)
             .Clipping(EWidgetClipping::ClipToBounds)[SNew(SImage).Image(&BackgroundBrush)]];
@@ -179,7 +257,7 @@ TSharedRef<SWidget> UTrainMenu::BuildContent()
         [this]()
         {
             if (PauseMode) Resume();
-            else if (auto* Session=GetGameInstance<UTrainSession>()) Session->Solo();
+            else PlayIntro();
             return FReply::Handled();
         });
     Button(T(TEXT("Réglages"), TEXT("Settings")), [this]() { Page = 1; Refresh(); return FReply::Handled(); });
@@ -298,6 +376,7 @@ TSharedRef<SWidget> UTrainMenu::BuildSettings()
                 {
                     Settings->Monitor = Index;
                     Settings->SetDisplayProperties(Info.ID, Index);
+                    if (Settings->UseNativeResolution) Settings->SetScreenResolution(Settings->NativeResolution());
                     Settings->ApplyResolutionSettings(false);
                     Settings->ConfirmVideoMode();
                     if (auto Window = GetWorld()->GetGameViewport()->GetWindow())
@@ -321,10 +400,13 @@ TSharedRef<SWidget> UTrainMenu::BuildSettings()
                 Settings->SetFullscreenMode(Value == ECheckBoxState::Checked ? EWindowMode::Fullscreen : EWindowMode::Windowed);
                 Settings->ApplyResolutionSettings(false); Settings->ConfirmVideoMode(); Apply(); Refresh();
             }));
-        auto Native = Settings->GetDesktopResolution();
-        if (Metrics.MonitorInfo.IsValidIndex(Settings->Monitor))
-            Native = FIntPoint(Metrics.MonitorInfo[Settings->Monitor].NativeWidth, Metrics.MonitorInfo[Settings->Monitor].NativeHeight);
+        const auto Native = Settings->NativeResolution();
         TArray<FChoice> Resolutions;
+        Resolutions.Add({ T(TEXT("Native (automatique)"),TEXT("Native (automatic)")), [Settings,Apply]()
+        {
+            Settings->UseNativeResolution=true;Settings->SetScreenResolution(Settings->NativeResolution());
+            Settings->ApplyResolutionSettings(false);Settings->ConfirmVideoMode();Apply();
+        } });
         const FIntPoint Common[] { {1280,720},{1280,800},{1600,900},{1600,1000},{1920,1080},{1920,1200},
             {2560,1440},{2560,1600},{2560,1080},{3440,1440},{3840,1080},{3840,1600},{3840,2160},{5120,1440},{7680,2160} };
         TArray<FIntPoint> Sizes { Native };
@@ -335,13 +417,27 @@ TSharedRef<SWidget> UTrainMenu::BuildSettings()
         for (auto Size : Sizes)
             Resolutions.Add({ FText::FromString(FString::Printf(TEXT("%d × %d"), Size.X, Size.Y)), [Settings, Size, Apply]()
             {
-                Settings->SetScreenResolution(Size); Settings->ApplyResolutionSettings(false);
+                Settings->UseNativeResolution=false; Settings->SetScreenResolution(Size); Settings->ApplyResolutionSettings(false);
                 Settings->ConfirmVideoMode(); Apply();
             } });
         Row(T(TEXT("Résolution plein écran"), TEXT("Fullscreen resolution")), Select(
             TAttribute<FText>::CreateLambda([Settings]()
-            { auto Size = Settings->GetScreenResolution(); return FText::FromString(FString::Printf(TEXT("%d × %d"), Size.X, Size.Y)); }),
+            { auto Size = Settings->GetScreenResolution(); return FText::FromString(FString::Printf(TEXT("%d × %d%s"), Size.X, Size.Y, Settings->UseNativeResolution ? TEXT(" · Native") : TEXT(""))); }),
             Resolutions, Settings->GetFullscreenMode() != EWindowMode::Windowed));
+        TArray<FChoice> RenderScales;
+        RenderScales.Add({T(TEXT("Automatique (Unreal)"),TEXT("Automatic (Unreal)")),[Settings,Apply]()
+            { Settings->ScalabilityQuality.ResolutionQuality=0;Apply(); }});
+        for (float Scale : {100.f,83.f,75.f,67.f})
+            RenderScales.Add({FText::FromString(FString::Printf(TEXT("%.0f %%"),Scale)),[Settings,Apply,Scale]()
+                { Settings->SetResolutionScaleValueEx(Scale);Apply(); }});
+        Row(T(TEXT("Résolution du rendu 3D"),TEXT("3D render resolution")),Select(
+            TAttribute<FText>::CreateLambda([Settings]()
+            { const float Scale=Settings->ScalabilityQuality.ResolutionQuality;
+              return Scale<=0 ? T(TEXT("Automatique (Unreal)"),TEXT("Automatic (Unreal)"))
+                : FText::FromString(FString::Printf(TEXT("%.0f %%"),Scale)); }),RenderScales));
+        Rows->AddSlot().AutoHeight().Padding(0,4)[Label(T(
+            TEXT("100 % privilégie la netteté ; une valeur réduite améliore la fluidité. L’interface garde la résolution de l’écran."),
+            TEXT("100% prioritizes sharpness; lower values improve performance. The interface keeps the screen resolution.")),13)];
         Row(T(TEXT("VSync"), TEXT("VSync")), Toggle(
             TAttribute<ECheckBoxState>::CreateLambda([Settings]() { return Settings->IsVSyncEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }),
             [Settings, Apply](ECheckBoxState Value) { Settings->SetVSyncEnabled(Value == ECheckBoxState::Checked); Apply(); }));
@@ -470,6 +566,12 @@ void UTrainMenu::ChangeTab(int32 Delta)
 FReply UTrainMenu::NativeOnPreviewKeyDown(const FGeometry& Geometry, const FKeyEvent& Event)
 {
     const FKey Key = Event.GetKey();
+    if (IntroPlayer)
+    {
+        if (Key == EKeys::Escape || Key == UTrainSettings::Get()->Key(TEXT("MenuBack"), true))
+            FinishIntro();
+        return FReply::Handled();
+    }
     if (auto* Input=UCommonInputSubsystem::Get(GetOwningLocalPlayer()))
         Input->SetCurrentInputType(Key.IsGamepadKey() ? ECommonInputType::Gamepad : ECommonInputType::MouseAndKeyboard);
     const auto* Settings=UTrainSettings::Get();
@@ -502,6 +604,7 @@ FReply UTrainMenu::NativeOnAnalogValueChanged(const FGeometry& Geometry, const F
 
 void UTrainMenu::NativeDestruct()
 {
+    CloseIntro();
     if (auto* Session=GetGameInstance<UTrainSession>()) Session->Changed.Remove(SessionListener);
     SessionListener.Reset();
     Super::NativeDestruct();
@@ -558,7 +661,9 @@ TSharedRef<SWidget> UTrainMenu::BuildSession()
 TSharedRef<SWidget> UTrainMenu::BuildSummary()
 {
     auto Column=SNew(SVerticalBox); const auto* GS=GetWorld()->GetGameState<ATrainGameState>();
-    Column->AddSlot().AutoHeight().Padding(0,0,0,20)[Label(T(TEXT("Bilan de l’expédition"),TEXT("Expedition summary")),29)];
+    Column->AddSlot().AutoHeight().Padding(0,0,0,20)
+        [Label(GS && GS->Victory ? T(TEXT("La voie est dégagée"), TEXT("The tracks are clear"))
+            : T(TEXT("Bilan de l’expédition"), TEXT("Expedition summary")),29)];
     Column->AddSlot().AutoHeight().Padding(0,0,0,15)[Label(FText::Format(T(TEXT("{0} salle(s) sécurisée(s)"),TEXT("{0} room(s) cleared")),FText::AsNumber(GS ? GS->RoomsCleared : 0)),20)];
     if (GS) for (const APlayerState* State:GS->PlayerArray)
         if (const auto* PS=Cast<ATrainPlayerState>(State))
@@ -614,8 +719,8 @@ TSharedRef<SWidget> UTrainMenu::BuildStation()
         Column->AddSlot().AutoHeight().Padding(0,0,0,10)[Label(T(TEXT("Chaque voyageur possède son équipement et son style de combat."),TEXT("Each traveller has their own equipment and combat style.")),15)];
         Button(C==0 ? T(TEXT("Le Conducteur · Sélectionné"),TEXT("The Conductor · Selected")):T(TEXT("Le Conducteur · Robuste, armes lourdes"),TEXT("The Conductor · Sturdy, heavy weapons")),[Select](){Select(0,0);});
         if (Profile->Has(TEXT("character")))
-            Button(C==1 ? T(TEXT("L’Éclaireur · Sélectionné"),TEXT("The Scout · Selected")):T(TEXT("L’Éclaireur · Rapide, plus fragile"),TEXT("The Scout · Faster, more fragile")),[Select](){Select(1,0);});
-        else Buy(TEXT("character"),T(TEXT("Recruter l’Éclaireur"),TEXT("Recruit the Scout")));
+            Button(C==1 ? T(TEXT("L’Éclaireuse · Sélectionnée"),TEXT("The Scout · Selected")):T(TEXT("L’Éclaireuse · Rapide, plus fragile"),TEXT("The Scout · Faster, more fragile")),[Select](){Select(1,0);});
+        else Buy(TEXT("character"),T(TEXT("Recruter l’Éclaireuse"),TEXT("Recruit the Scout")));
     }
     else if (Station==1)
     {

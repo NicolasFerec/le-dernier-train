@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 #include "TrainNetwork.h"
 #include "TrainSession.h"
+#include "../world/TrainRoomGeneration.h"
 #include "TrainDash.h"
 #include "TrainMelee.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -104,6 +105,7 @@ namespace
             if (Phase==1)
             {
                 if (Elapsed<.8 || !ClientPawn()) return false;
+                ClientPawn()->ServerLoadout(1,1,false,false);
                 Before=ServerPawn()->GetActorLocation();
                 Client->GetFirstPlayerController()->InputKey(FInputKeyEventArgs::CreateSimulated(UTrainSettings::Get()->Key(TEXT("MoveUp"),false),IE_Pressed,1));
                 Next(); return false;
@@ -111,6 +113,13 @@ namespace
             if (Phase==2)
             {
                 if (Elapsed<.8) return false;
+                for (auto* View : {ClientPawn(),ServerPawn()})
+                {
+                    Test->TestEqual(TEXT("Scout selection reaches both network views"),View->Character,1);
+                    Test->TestEqual(TEXT("Scout mesh replicates"),View->GetMesh()->GetSkeletalMeshAsset()->GetName(),FString(TEXT("SK_Scout")));
+                    Test->TestTrue(TEXT("Replicated Scout has mannequin fingers"),View->GetMesh()->GetBoneIndex(TEXT("index_01_r"))!=INDEX_NONE);
+                }
+                ClientPawn()->ServerLoadout(0,0,false,false);
                 auto* Move=FindObject<UInputAction>(ClientPawn(),TEXT("Move"));
                 auto* Input=Cast<UEnhancedInputComponent>(ClientPawn()->InputComponent);
                 const FVector2D Value=Move&&Input?Input->GetBoundActionValue(Move).Get<FVector2D>():FVector2D::ZeroVector;
@@ -148,11 +157,27 @@ namespace
                 }
                 if (!ClientPawn() || !ServerPawn() || Server->GetGameState()->PlayerArray.Num()!=4 || Elapsed<1) return false;
                 GS=Server->GetGameState<ATrainGameState>();
+                if (!GS->RoomReady || !Client->GetGameState<ATrainGameState>()->RoomReady) return false;
+                TArray<ATrainRoomProp*> ClientProps;
+                for (TActorIterator<ATrainRoomProp> It(Client.Get());It;++It) ClientProps.Add(*It);
+                if (ClientProps.Num()!=GS->LayoutProps) return false;
+                Test->TestTrue(TEXT("Procedural furniture is present on the guest"),ClientProps.Num()>=3);
+                Test->TestEqual(TEXT("The room seed replicates natively"),Client->GetGameState<ATrainGameState>()->RoomSeed,GS->RoomSeed);
+                for (TActorIterator<ATrainRoomProp> It(Server.Get());It;++It)
+                {
+                    const auto* Prop=*It;
+                    Test->TestTrue(TEXT("Host and guest share the same furniture and collision placement"),ClientProps.ContainsByPredicate([Prop](const ATrainRoomProp* Other)
+                        { return Prop->Kind==Other->Kind && FVector::Dist(Prop->GetActorLocation(),Other->GetActorLocation())<2
+                            && FVector::Dist(Prop->GetComponentsBoundingBox(true).GetExtent(),Other->GetComponentsBoundingBox(true).GetExtent())<2; }));
+                }
                 Test->TestTrue(TEXT("All ready skips the remainder of the countdown"),Elapsed<9);
                 EnemyCount=GS->RemainingEnemies;Test->TestTrue(TEXT("Room has authoritative enemies"),EnemyCount>=3);
-                for (TActorIterator<ATrainEnemy> It(Server.Get());It;++It) { It->SetActorTickEnabled(false);if (auto* AI=Cast<AAIController>(It->GetController())) AI->StopMovement();It->GetCharacterMovement()->StopMovementImmediately(); Target=*It; }
+                for (TActorIterator<ATrainEnemy> It(Server.Get());It;++It) { It->SetActorTickEnabled(false);if (auto* AI=Cast<AAIController>(It->GetController())) AI->StopMovement();It->GetCharacterMovement()->StopMovementImmediately(); if (It->GetEnemyType()==ETrainEnemyType::Patrol) Target=*It; }
                 Test->TestNotNull(TEXT("Enemy exists"),Target.Get());
                 if (!Target.IsValid()) return true;
+                Test->TestEqual(TEXT("A patrol keeps the same health in a four-player crew"), Target->MaxHealth,90.f);
+                // Set up a wounded target for the one-light, one-heavy kill scenario.
+                Target->Health = 90.f;
                 ServerPawn()->SetActorLocation(Target->GetActorLocation()-FVector(100,0,0),false,nullptr,ETeleportType::TeleportPhysics);
                 ServerPawn()->SetActorRotation(FRotator::ZeroRotator);
                 Next(); return false;
@@ -238,7 +263,7 @@ namespace
                     UTrainSettings::Get()->Language = MoveTemp(NoticeLanguageToRestore);
                     NoticeLanguageToRestore.Reset();
                 }
-                if (UGameplayStatics::GetCurrentLevelName(Server.Get())!=TEXT("Fonderie") || UGameplayStatics::GetCurrentLevelName(Client.Get())!=TEXT("Fonderie") || !ClientPawn() || !ClientPawn()->GetPlayerState<ATrainPlayerState>() || !GS || GS->PlayerArray.Num()!=4) return false;
+                if (UGameplayStatics::GetCurrentLevelName(Server.Get())!=TEXT("Faubourgs02") || UGameplayStatics::GetCurrentLevelName(Client.Get())!=TEXT("Faubourgs02") || !ClientPawn() || !ClientPawn()->GetPlayerState<ATrainPlayerState>() || !GS || GS->PlayerArray.Num()!=4) return false;
                 const ATrainPlayerState* FallenHost = nullptr;
                 for (const APlayerState* Player : GS->PlayerArray)
                     if (const auto* State = Cast<ATrainPlayerState>(Player); State && State->IsHost) FallenHost = State;

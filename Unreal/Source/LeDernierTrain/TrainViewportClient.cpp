@@ -38,6 +38,7 @@ void UTrainViewportClient::Tick(float DeltaTime)
     if (!FSlateApplication::IsInitialized())
         return;
     auto Window = GetWindow();
+    if (Window && Window->IsVisible()) UTrainSettings::Get()->ApplyInitialDisplay(GetWorld());
     if (!Window || FSlateApplication::Get().GetActiveTopLevelWindow() != Window)
         return;
 

@@ -8,8 +8,8 @@ class UTrainDash : public UGameplayAbility
 {
     GENERATED_BODY()
 public:
-    static constexpr float LeapDuration = .27f;
-    static constexpr float CooldownDuration = .65f;
+    static constexpr float LeapDuration = .24f;
+    static constexpr float CooldownDuration = .52f;
 
     UTrainDash();
     virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,

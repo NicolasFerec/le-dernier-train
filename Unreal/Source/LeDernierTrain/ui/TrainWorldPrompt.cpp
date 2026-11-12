@@ -2,6 +2,8 @@
 #include "TrainInputHints.h"
 #include "../network/TrainNetwork.h"
 #include "../TrainPrototype.h"
+#include "../TrainRooms.h"
+#include "../TrainSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Widgets/Layout/SBorder.h"
@@ -21,5 +23,15 @@ TSharedRef<SWidget> UTrainWorldPrompt::RebuildWidget()
                 [SNew(STrainInputGlyph).Key_Lambda([this](){return TrainInput::ActionKey(this,TEXT("Interact"));})]
             +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(10,0,2,0)
                 [SNew(STextBlock).ColorAndOpacity(FLinearColor(.96f,.86f,.7f)).Font(FCoreStyle::GetDefaultFontStyle("Regular",16))
-                    .Text_Lambda([this](){return ATrainStation::Title(Station.IsValid()?Station->Kind:3);})]];
+                    .Text_Lambda([this]()
+                    {
+                        const int32 Kind = Station.IsValid() ? Station->Kind : 3;
+                        const auto* GS = GetWorld()->GetGameState<ATrainGameState>();
+                        if (Kind != 3 || !GS || GS->RoomIndex == 0)
+                            return ATrainStation::Title(Kind);
+                        const bool English = UTrainSettings::Get()->Language == TEXT("en");
+                        if (GS->RoomIndex == TrainRooms::Count)
+                            return FText::FromString(English ? TEXT("Restart the pumps") : TEXT("Remettre les pompes en marche"));
+                        return FText::FromString(English ? TEXT("Continue") : TEXT("Continuer"));
+                    })]];
 }

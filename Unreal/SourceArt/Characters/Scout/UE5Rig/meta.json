@@ -1,0 +1,32 @@
+{
+  "resource": "rigging",
+  "task": {
+    "id": "01a1cf01-0890-7434-b67c-88803386afc2",
+    "type": "rig",
+    "name": "",
+    "status": "SUCCEEDED",
+    "progress": 100,
+    "preceding_tasks": 0,
+    "created_at": 1794474317118,
+    "started_at": 1794474318689,
+    "finished_at": 1794474339729,
+    "expires_at": 1794733539729,
+    "task_error": null,
+    "result": {
+      "basic_animations": {}
+    },
+    "consumed_credits": 5
+  },
+  "saved_files": [
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/rigged_character.fbx",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/rigged_character.glb",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/walking_glb.glb",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/walking_fbx.fbx",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/walking_armature_glb.glb",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/running_glb.glb",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/running_fbx.fbx",
+    "/home/nicolas/Documents/le-dernier-train-unreal/Unreal/SourceArt/Characters/Scout/UE5Rig/running_armature_glb.glb"
+  ],
+  "skipped": [],
+  "downloaded_at": "2026-11-12T09:06:10.785Z"
+}

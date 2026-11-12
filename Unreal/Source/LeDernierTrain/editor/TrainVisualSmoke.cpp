@@ -25,6 +25,7 @@ namespace
         double Began=FPlatformTime::Seconds(),Since=Began;
         int32 Step=0,Frame=0;
         bool bMotionStarted=false;
+        const bool Scout=FParse::Param(FCommandLine::Get(),TEXT("TrainScoutSmoke"));
         TWeakObjectPtr<ATrainEnemy> Enemy;
         float Health=100;
         double DodgeStartZ=0,DodgePeakZ=0;
@@ -41,7 +42,7 @@ namespace
         }
         void Capture(const TCHAR* Name)
         {
-            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("PrototypeCaptures")/Name,true,false);
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/(Scout?TEXT("ScoutReview"):TEXT("PrototypeCaptures"))/Name,true,false);
             UE_LOG(LogTemp,Display,TEXT("Train visual capture: %s"),Name);
         }
         void CaptureMotion(const TCHAR* Name,double Time,double Start,double Interval,int32 Count)
@@ -55,11 +56,18 @@ namespace
             auto* PC=W?W->GetFirstPlayerController():nullptr;auto* Pawn=PC?Cast<ATrainPawn>(PC->GetPawn()):nullptr;
             auto* PS=Pawn?Pawn->GetPlayerState<ATrainPlayerState>():nullptr;
             const double Now=FPlatformTime::Seconds(),Time=Now-Since;
-            if (Now-Began>35) { UE_LOG(LogTemp,Error,TEXT("Train visual smoke timed out at step %d"),Step);FPlatformMisc::RequestExitWithStatus(false,1);return false; }
+            if (Now-Began>75) { UE_LOG(LogTemp,Error,TEXT("Train visual smoke timed out at step %d"),Step);FPlatformMisc::RequestExitWithStatus(false,1);return false; }
             if (!W || !Pawn || !PS) return true;
+            const auto* GS=W->GetGameState<ATrainGameState>();
+            if (Step>=15 && (!GS || !GS->RoomReady)) return true;
             const FString Map=UGameplayStatics::GetCurrentLevelName(W);
             auto* ASC=Pawn->GetAbilitySystemComponent();
-            if (Step==0 && Map==TEXT("Wagon") && Time>1.5) { Pose(Pawn,FVector(-1450,100,95),225);Next(); }
+            if (Step==0 && Map==TEXT("Wagon") && Time>1.5)
+            {
+                PC->ConsoleCommand(TEXT("r.SetRes 1600x900w"));
+                Pawn->ServerLoadout(Scout?1:0,0,false,false);
+                Pose(Pawn,FVector(-1450,100,95),225);Next();
+            }
             else if (Step==1 && Time>.85) { Capture(TEXT("wagon-arsenal-final.png"));Next(); }
             else if (Step==2 && Time>.2) { Pose(Pawn,FVector(900,-180,95));Move(PC,true);Next(); }
             else if (Step==3) { CaptureMotion(TEXT("conducteur-course-sabre"),Time,.25,.14,6);if (Time>1.10) Next(); }
@@ -73,7 +81,7 @@ namespace
             }
             else if (Step==8)
             {
-                if (!bMotionStarted) { Pawn->ServerLoadout(0,1,false,false);Pose(Pawn,FVector(900,-180,95));Move(PC,true);bMotionStarted=true; }
+                if (!bMotionStarted) { Pawn->ServerLoadout(Scout?1:0,1,false,false);Pose(Pawn,FVector(900,-180,95));Move(PC,true);bMotionStarted=true; }
                 CaptureMotion(TEXT("conducteur-course-marteau"),Time,.25,.14,6);if (Time>1.1) Next();
             }
             else if (Step==9 && Time>.25) { Move(PC,false);Pose(Pawn,FVector(1200,-230,95));Next(); }
@@ -102,9 +110,9 @@ namespace
                     const double Rise=DodgePeakZ-DodgeStartZ;
                     const bool Landed=Pawn->GetCharacterMovement()->IsMovingOnGround();
                     UE_LOG(LogTemp, Display, TEXT("Dodge smoke: %.1f cm forward, %.1f cm up, landed=%d"),Distance,Rise,Landed);
-                    if (!Landed || Distance < 150 || Distance > 235 || Rise < 12 || Rise > 40)
+                    if (!Landed || Distance < 230 || Distance > 370 || Rise > 12)
                     {
-                        UE_LOG(LogTemp, Error, TEXT("Dodge did not make a short horizontal leap"));
+                        UE_LOG(LogTemp, Error, TEXT("Dodge did not make a grounded roll"));
                         FPlatformMisc::RequestExitWithStatus(false,1);
                         return false;
                     }
@@ -126,17 +134,23 @@ namespace
                 ASC->TryActivateAbilityByClass(UTrainHeavyAttack::StaticClass());Next();
             }
             else if (Step==19 && Time>.33) { Capture(TEXT("pompage-degats-infliges.png"));Next(); }
-            else if (Step==20 && Time>.7) { W->ServerTravel(TEXT("/Game/Maps/Fonderie"));Next(); }
-            else if (Step==21 && Map==TEXT("Fonderie") && Time>.6) { Pose(Pawn,FVector(1050,730,95),225);Next(); }
-            else if (Step==22 && Time>.8) { Capture(TEXT("halle-des-turbines.png"));Next(); }
-            else if (Step==23 && Time>.5)
+            else if (Step==20 && Time>.7) { W->ServerTravel(TEXT("/Game/Maps/Faubourgs10"));Next(); }
+            else if (Step==21 && Map==TEXT("Faubourgs10") && Time>.6) { Pose(Pawn,FVector(600,-175,95),48);Next(); }
+            else if (Step==22 && Time>.55) { Capture(TEXT("faubourgs-station.png"));Next(); }
+            else if (Step==23 && Time>.45) { W->ServerTravel(TEXT("/Game/Maps/Faubourgs04"));Next(); }
+            else if (Step==24 && Map==TEXT("Faubourgs04") && Time>.55) { Pose(Pawn,FVector(-230,-570,95),0);Next(); }
+            else if (Step==25 && Time>.6) { Capture(TEXT("faubourgs-canal.png"));Next(); }
+            else if (Step==26 && Time>.45) { W->ServerTravel(TEXT("/Game/Maps/Faubourgs06"));Next(); }
+            else if (Step==27 && Map==TEXT("Faubourgs06") && Time>.55) { Pose(Pawn,FVector(-600,580,95),30);Next(); }
+            else if (Step==28 && Time>.6) { Capture(TEXT("faubourgs-marche.png"));Next(); }
+            else if (Step==29 && Time>.4)
             {
                 UE_LOG(LogTemp,Display,TEXT("TRAIN_VISUAL_SMOKE_COMPLETE"));FPlatformMisc::RequestExit(false);return false;
             }
             return true;
         }
     };
-    FAutoConsoleCommand VisualSmoke(TEXT("Train.VisualSmoke"),TEXT("Development: capture actual gameplay, both weapons, feedback and two rooms."),
+    FAutoConsoleCommand VisualSmoke(TEXT("Train.VisualSmoke"),TEXT("Development: capture actual gameplay, both weapons, feedback and the drowned district."),
         FConsoleCommandDelegate::CreateLambda([]()
         {
             if (!IsRunningGame() || !FParse::Param(FCommandLine::Get(),TEXT("TrainVisualSmoke"))) return;
